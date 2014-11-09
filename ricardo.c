@@ -11,6 +11,11 @@
 
 #define SB_SIZE 52
 
+#define SEEK_WRITE(sb,TO, p) lseek((sb)->fd, (TO) * (sb)->blksz, SEEK_SET); \
+        write((sb)->fd, (p), (sb)->blksz);
+#define SEEK_READ(sb, TO, p) lseek((sb)->fd, (TO) * (sb)->blksz, SEEK_SET); \
+        read((sb)->fd, (p), (sb)->blksz);
+
 /* Build a new filesystem image in =fname (the file =fname should be present
  * in the OS's filesystem).  The new filesystem should use =blocksize as its
  * block size; the number of blocks in the filesystem will be automatically
@@ -137,7 +142,7 @@ int fs_close(struct superblock *sb) {
 uint64_t fs_get_block(struct superblock *sb) {
     if (sb->freeblks == 0) {
         //report Error
-        return NULL;
+        return 0;
     }
     uint64_t freeList = sb->freelist;
     struct freepage *fp = malloc(sizeof (freepage));
@@ -146,20 +151,18 @@ uint64_t fs_get_block(struct superblock *sb) {
     if (fp->count != 0) {
         //update previous pointers
         struct freepage *fp_prev = malloc(sizeof (freepage));
-        lseek(sb->fd, fp->links[0], SEEK_SET);
-        read(sb->fd, fp_prev, sb->blksz);
+        SEEK_READ(sb, fp->links[0], fp_prev);
         fp_prev->next = fp->next;
-        write(sb->fd, fp_prev, sb->blksz);
+        SEEK_WRITE(sb, fp->links[0], fp_prev);
         free(fp_prev);
     }
 
     if (fp->next != 0) {
         //update next pointers
         struct freepage *fp_next = malloc(sizeof (freepage));
-        lseek(sb->fd, fp->next, SEEK_SET);
-        read(sb->fd, fp_next, sb->blksz);
+        SEEK_READ(sb, fp->next, fp_next);
         fp_next->links[0] = fp->links[0];
-        write(sb->fd, fp_next, sb->blksz);
+        SEEK_WRITE(sb, fp->next, fp_next);
         free(fp_next);
     }
 
@@ -167,4 +170,30 @@ uint64_t fs_get_block(struct superblock *sb) {
     free(fp);
 
     return sb->freelist;
+}
+
+int fs_put_block(struct superblock *sb, uint64_t block) {
+    if (sb->freeblks != 0) {
+        uint64_t freeList = sb->freelist;
+        struct freepage *fp = NULL, fp_next = NULL;
+        fp = malloc(sizeof (freepage));
+        fp_next = malloc(sizeof (freepage));
+
+        SEEK_READ(sb, freeList, fp_next);
+        fp->next = freeList;
+        fp->count = 0;
+        SEEK_WRITE(sb, block, fp);
+        fp_next->count = 1;
+        fp_next->links[0] = block;
+        SEEK_WRITE(sb, freeList, fp_next);
+
+        sb->freelist = block;
+    } else {
+        struct freepage *fp = NULL;
+        fp = malloc(sizeof (freepage));
+        fp->next = 0;
+        fp->count = 0;
+        SEEK_WRITE(sb, block, fp);
+        sb->freelist = block;
+    }
 }
