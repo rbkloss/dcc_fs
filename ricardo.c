@@ -188,6 +188,8 @@ int fs_put_block(struct superblock *sb, uint64_t block) {
         SEEK_WRITE(sb, freeList, fp_next);
 
         sb->freelist = block;
+        free(fp);
+        free(fp_next);
     } else {
         struct freepage *fp = NULL;
         fp = malloc(sizeof (freepage));
@@ -195,5 +197,9 @@ int fs_put_block(struct superblock *sb, uint64_t block) {
         fp->count = 0;
         SEEK_WRITE(sb, block, fp);
         sb->freelist = block;
+        sb->freeblks++;
+        free(fp);
     }
+
+    return 0;
 }
