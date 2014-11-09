@@ -150,6 +150,7 @@ uint64_t fs_get_block(struct superblock *sb) {
         read(sb->fd, fp_prev, sb->blksz);
         fp_prev->next = fp->next;
         write(sb->fd, fp_prev, sb->blksz);
+        free(fp_prev);
     }
 
     if (fp->next != 0) {
@@ -159,8 +160,10 @@ uint64_t fs_get_block(struct superblock *sb) {
         read(sb->fd, fp_next, sb->blksz);
         fp_next->links[0] = fp->links[0];
         write(sb->fd, fp_next, sb->blksz);
+        free(fp_next);
     }
 
+    sb->freelist = fp->next;
     free(fp);
 
     return sb->freelist;
