@@ -6,15 +6,12 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include <assert.h>
+
 #include "fs.h"
 #include "utils.h"
 
 #define SB_SIZE 52
-
-#define SEEK_WRITE(sb,TO, p) lseek((sb)->fd, (TO) * (sb)->blksz, SEEK_SET); \
-        write((sb)->fd, (p), (sb)->blksz);
-#define SEEK_READ(sb, TO, p) lseek((sb)->fd, (TO) * (sb)->blksz, SEEK_SET); \
-        read((sb)->fd, (p), (sb)->blksz);
 
 /* Build a new filesystem image in =fname (the file =fname should be present
  * in the OS's filesystem).  The new filesystem should use =blocksize as its
@@ -116,7 +113,7 @@ struct superblock * fs_format(const char *fname, uint64_t blocksize) {
 
 struct superblock * fs_open(const char *fname) {
     int fd = open(fname, O_RDWR);
-    struct superblock* sb = malloc(sizeof (struct superblock));
+    struct superblock* sb = (struct superblock*) malloc(sizeof (struct superblock));
     read(fd, sb, sizeof (struct superblock));
 
     /*
@@ -145,12 +142,12 @@ uint64_t fs_get_block(struct superblock *sb) {
         return 0;
     }
     uint64_t freeList = sb->freelist;
-    struct freepage *fp = malloc(sizeof (freepage));
+    struct freepage *fp = (struct freepage *) malloc(sizeof (freepage));
     lseek(sb->fd, freeList, SEEK_SET);
     read(sb->fd, fp, sb->blksz);
     if (fp->count != 0) {
         //update previous pointers
-        struct freepage *fp_prev = malloc(sizeof (freepage));
+        struct freepage *fp_prev = (struct freepage *) malloc(sizeof (freepage));
         SEEK_READ(sb, fp->links[0], fp_prev);
         fp_prev->next = fp->next;
         SEEK_WRITE(sb, fp->links[0], fp_prev);
@@ -159,7 +156,7 @@ uint64_t fs_get_block(struct superblock *sb) {
 
     if (fp->next != 0) {
         //update next pointers
-        struct freepage *fp_next = malloc(sizeof (freepage));
+        struct freepage *fp_next = (struct freepage *) malloc(sizeof (freepage));
         SEEK_READ(sb, fp->next, fp_next);
         fp_next->links[0] = fp->links[0];
         SEEK_WRITE(sb, fp->next, fp_next);
@@ -175,9 +172,9 @@ uint64_t fs_get_block(struct superblock *sb) {
 int fs_put_block(struct superblock *sb, uint64_t block) {
     if (sb->freeblks != 0) {
         uint64_t freeList = sb->freelist;
-        struct freepage *fp = NULL, fp_next = NULL;
-        fp = malloc(sizeof (freepage));
-        fp_next = malloc(sizeof (freepage));
+        struct freepage *fp = NULL, *fp_next = NULL;
+        fp = (struct freepage *) malloc(sizeof (freepage));
+        fp_next = (struct freepage *) malloc(sizeof (freepage));
 
         SEEK_READ(sb, freeList, fp_next);
         fp->next = freeList;
@@ -192,7 +189,7 @@ int fs_put_block(struct superblock *sb, uint64_t block) {
         free(fp_next);
     } else {
         struct freepage *fp = NULL;
-        fp = malloc(sizeof (freepage));
+        fp = (struct freepage *) malloc(sizeof (freepage));
         fp->next = 0;
         fp->count = 0;
         SEEK_WRITE(sb, block, fp);
@@ -200,6 +197,107 @@ int fs_put_block(struct superblock *sb, uint64_t block) {
         sb->freeblks++;
         free(fp);
     }
+
+    return 0;
+}
+
+int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cnt) {
+    const int blocksNeeded = cnt / sb->blksz;
+    if (blocksNeeded > sb->freeblks) {
+        errno = ENOSPC;
+        return -1;
+    }
+    const int linkMaxLen = getINodeLinksCap(sb);
+    const int linkBlocksNeeded = getINodeLinksCap(sb) / blocksNeeded;
+    int blocksUsed = 0;
+
+    struct inode* parentNode = NULL, *fileNode = NULL;
+    struct nodeinfo* meta = NULL;
+    uint64_t parentBlock = findFile(sb, fname);
+    uint64_t prev = parentBlock;
+    SEEK_READ(sb, parentBlock, parentNode);
+    SEEK_READ(sb, parentNode->meta, meta);
+
+    if (strcmp(meta->name, fname) == 0) {
+        errno = EEXIST;
+        return -1;
+    } else {
+        //fileBlock aponta pro nó mais próximo de onde o arquivo deve estar
+        //isto é fileNode->parent = parentNode
+        ////////////////////////////////////////
+
+        const uint64_t fileRootBlock = fs_get_block(sb);
+        uint64_t currBlock = fileRootBlock;
+
+        int nLinks = getLinksLen(parentNode);
+        int maxNumberOfFiles = getINodeLinksCap(sb) - nLinks;
+        if (meta->size + 1 >= maxNumberOfFiles) {
+            if(parentNode->)
+            //TODO
+            uint64_t dirSonBlock = fs_get_block(sb);
+            
+            parentNode->next = dirSonBlock;
+            struct inode* dirSon = (struct inode*) malloc(sb->blksz);
+            dirSon->links[0] = 
+            
+        } else {
+            meta->size++;
+            SEEK_WRITE(sb, parentNode->meta, meta);
+            parentNode->links[nLinks] = fileRootBlock;
+            parentNode->links[nLinks + 1] = 0;
+            SEEK_WRITE(sb, parentBlock, parentNode);
+        }
+        //////////////
+
+        fileNode = (struct inode*) malloc(sb->blksz);
+        fileNode->mode = IMREG;
+        fileNode->parent = parentBlock;
+        fileNode->next = 0;
+        strcpy(meta->name, fname);
+        meta->size = cnt;
+
+        uint64_t dataBlock = 0;
+        int i = 0;
+        int fileLinkLen = 0;
+        while (blocksUsed < blocksNeeded) {
+            //handle current block
+            int i = 0;
+            int fileLinkLen = 0;
+            const int blocksToWrite = MAX(blocksNeeded, linkMaxLen);
+            for (i = 0; i < blocksToWrite; i++) {
+                dataBlock = fs_get_block(sb);
+                SEEK_WRITE(sb, dataBlock, buf + blocksNeeded);
+                fileNode->links[fileLinkLen++] = dataBlock;
+            }
+            blocksUsed += i - 1;
+
+            //handle new block for adding the rest of the links
+            if (blocksUsed > blocksNeeded) {
+                SEEK_WRITE(sb, currBlock, fileNode);
+                break;
+            } else {
+                /*
+                 * Get new block, 
+                 * make fileNode->next point to the new Block
+                 * make fileNode the new Block
+                 * fileNode->parent points to parentBlock...
+                 * 
+                 */
+                uint64_t newLinkBlock = fs_get_block(sb);
+                fileNode->next = newLinkBlock;
+                SEEK_WRITE(sb, currBlock, fileNode);
+                fileNode->mode = IMCHILD | IMREG;
+                fileNode->parent = fileRootBlock;
+                fileNode->meta = fs_get_block(sb);
+                meta->name = prev;
+                fileNode->next = 0;
+                fileNode->links[0] = 0;
+                prev = currBlock;
+                currBlock = newLinkBlock;
+            }
+        }
+    }
+    SEEK_WRITE(sb, parentBlock, parentNode);
 
     return 0;
 }
