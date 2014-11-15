@@ -1,41 +1,50 @@
 #include "StringProc.h"
 
-char** getFileParts(const char* fname) {
-    char* bar_p;
-    char* name = fname;
-    int len = 0;
-    while ((bar_p = strstr(fname, "/")) != NULL) {
-        len++;
+char** getFileParts(const char* fname, int* len) {
+    char** temp = malloc(sizeof (char*)*256);
+    char* name = NULL, * part = NULL, * pch = NULL;
+    name = malloc(sizeof (char)*strlen(fname));
+    strcpy(name, fname);
+    pch = strtok(name, "/");
+    part = malloc(strlen(pch));
+    strcpy(part, pch);
+    temp[0] = part;
+    *len = 0;
+    int i = 1;
+    while (pch != NULL) {
+        pch = strtok(NULL, "/");
+        if (pch) {
+            part = malloc(strlen(pch));
+            strcpy(part, pch);
+            temp[i++] = part;
+        }
+        (*len)++;
     }
-    char** ans = malloc(sizeof (char*) * len);
-    
-    for (int i = 0; i < len; i++) {
-        int next_bar = strspn(name + 1, '/');
-        char* part = malloc(sizeof (next_bar));
-        ans[i] = part;        
-        name = name + next_bar;
+
+    char** ans = malloc(sizeof (char*)*(*len));
+    for (int i = 0; i < *len; i++) {
+        ans[i] = temp[i];
     }
+    free(temp);
+    free(name);
     return ans;
 }
 
 char* getParentNodeName(const char*fname) {
-    char* bar_p;
-    char* last_bar_p;
-    int len = 0;
-    last_bar_p = strstr(fname, "/");
-    len++;
-    bar_p = strstr(fname, "/");
-    if (bar_p) {
-        len = 2;
-    } else {
-        return NULL;
+    char* name = NULL, * parent = NULL, * pch = NULL, *old = NULL;
+    name = malloc(sizeof (char)*strlen(fname));
+    strcpy(name, fname);
+    parent = strtok(name, "/");
+    pch = strtok(NULL, "/");
+    while (pch != NULL) {
+        old = pch;
+        pch = strtok(NULL, "/");
+        if (pch) {
+            parent = old;
+        }
     }
-    while ((bar_p = strstr(fname, "/")) != NULL) {
-        last_bar_p = bar_p;
-        len++;
-    }
-    int parentLen = strlen(fname) - strlen(strchr(last_bar_p, '/'));
-    char* parentName = malloc(parentLen + 1);
-    strncpy(parentName, last_bar_p, parentLen);
-    return parentName;
+    char* aux = malloc(sizeof (char)*strlen(parent));
+    strcpy(aux, parent);
+    free(name);
+    return aux;
 }

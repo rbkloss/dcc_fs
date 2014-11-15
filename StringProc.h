@@ -14,8 +14,11 @@ extern "C" {
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>    
+
+#define MALOC_COPY_STR(str_d, str_s) (str_d) = malloc(sizeof(strlen(str_s)));\
+strcpy((str_d), (str_s));
     
-    char** getFileParts(const char* fname);
+    char** getFileParts(const char* fname, int* len);
     char* getParentNodeName(const char*fname);
 
 

@@ -16,6 +16,9 @@ ricardo.o:fs.h ricardo.cc utils.o
 utils.o: utils.cc utils.h
 	$(CC) $(CFLAGS) utils.cc
 	
+string_test:
+	$(CC) $(LFLAGS) StringProc.c StringProc_test.c -o string_test.exe
+	
 clean:
 	rm *.o *~ *.exe
 	

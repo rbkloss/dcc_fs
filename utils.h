@@ -25,7 +25,7 @@ extern "C" {
     uint64_t findFile(const struct superblock* sb, const char* fname);
 
     int getINodeLinksCap(struct superblock* sb);
-    uint64_t getLinksLen(struct inode* node);
+    int getLinksLen(struct inode* node);
 
 
 
