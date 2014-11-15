@@ -25,55 +25,56 @@
 #define IMCHILD 4 /* child inode */
 
 struct superblock {
-	uint64_t magic; /* 0xdcc605f5 */
-	uint64_t blks; /* number of blocks in the filesystem */
-	uint64_t blksz; /* block size (bytes) */
-	uint64_t freeblks; /* number of free blocks in the filesystem */
-	uint64_t freelist; /* pointer to free block list */
-	uint64_t root; /* pointer to root directory's inode */
-	int fd; /* file descriptor for the filesystem image */
+    uint64_t magic; /* 0xdcc605f5 */
+    uint64_t blks; /* number of blocks in the filesystem */
+    uint64_t blksz; /* block size (bytes) */
+    uint64_t freeblks; /* number of free blocks in the filesystem */
+    uint64_t freelist; /* pointer to free block list */
+    uint64_t root; /* pointer to root directory's inode */
+    int fd; /* file descriptor for the filesystem image */
 };
 
 struct inode {
-	uint64_t mode;
-	uint64_t parent;
-	/* if =mode does not contain IMCHILD, then =parent points to the
-	 * directory that contains this inode.  if =mode contains IMCHILD,
-	 * then =parent points to the first inode (i.e., the inode without
-	 * IMCHILD) for the entity represented by this inode. */
-	uint64_t meta;
-	/* if =mode does not contain IMCHILD, then meta points to this inode's
-	 * metadata (struct iinfo).  if =mode contains IMCHILD, then meta
-	 * points to the previous inode for this inode's entity. */
-	uint64_t next;
-	/* if this file's date block do not fit in this inode, =next points to
-	 * the next inode for this entity; otherwise =next should be zero. */
-	uint64_t links[];
-	/* if =mode contains IMDIR, then entries in =links point to inode's
-	 * for each entity in the directory.  otherwise, if =mode contains
-	 * IMREG, then entries in =links point to this file's data blocks. */
+    uint64_t mode;
+    /* if =mode does not contain IMCHILD, then =parent points to the
+     * directory that contains this inode.  if =mode contains IMCHILD,
+     * then =parent points to the first inode (i.e., the inode without
+     * IMCHILD) for the entity represented by this inode. */
+    uint64_t parent;
+    /* if =mode does not contain IMCHILD, then meta points to this inode's
+     * metadata (struct iinfo).  if =mode contains IMCHILD, then meta
+     * points to the previous inode for this inode's entity. */
+    uint64_t meta;
+    /* if this file's date block do not fit in this inode, =next points to
+     * the next inode for this entity; otherwise =next should be zero. */
+    uint64_t next;
+    /* if =mode contains IMDIR, then entries in =links point to inode's
+     * for each entity in the directory.  otherwise, if =mode contains
+     * IMREG, then entries in =links point to this file's data blocks. */
+    uint64_t links[];
 };
 
 struct nodeinfo {
-	uint64_t size;
-	/* for files (mode IMREG), =size should contain the size of the file in 
-	 * bytes.  for directories (mode IMDIR), =size should contain the
-	 * number of files in the directory. */
-	uint64_t reserved[7];
-	/* reserving some space to implement security and ownership in the
-	 * future. */
-	char name[];
-	/* remainder of block used to store this entity's name. */
+    /* for files (mode IMREG), =size should contain the size of the file in 
+     * bytes.  for directories (mode IMDIR), =size should contain the
+     * number of files in the directory. */
+    uint64_t size;
+    /* reserving some space to implement security and ownership in the
+     * future. */
+    uint64_t reserved[7];
+    /* remainder of block used to store this entity's name. */
+    char name[];
+
 };
 
 struct freepage {
-	uint64_t next;
-	/* link to next freepage; or zero if this is the last freepage */
-	uint64_t count;
-	uint64_t links[];
-	/* remainder of block used to store links to free blocks.  =count
-	 * counts the number of elements in links, stored from links[0] to
-	 * links[counts-1]. */
+    uint64_t next;
+    /* link to next freepage; or zero if this is the last freepage */
+    uint64_t count;
+    uint64_t links[];
+    /* remainder of block used to store links to free blocks.  =count
+     * counts the number of elements in links, stored from links[0] to
+     * links[counts-1]. */
 };
 
 #define MIN_BLOCK_SIZE 128
@@ -114,7 +115,7 @@ int fs_put_block(struct superblock *sb, uint64_t block);
 int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cnt);
 
 ssize_t fs_read_file(struct superblock *sb, const char *fname, char *buf,
-                      size_t bufsz);
+        size_t bufsz);
 
 int fs_delete_file(struct superblock *sb, const char *fname);
 

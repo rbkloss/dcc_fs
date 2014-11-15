@@ -12,20 +12,38 @@
 extern "C" {
 #endif
 
-#define MAX(a, b) ((a) > (b))? a : b;
-#define MIN(a, b) ((a) < (b))? a : b;
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <inttypes.h>
+#include "fs.h"
 
-#define SEEK_WRITE(sb,TO, p) lseek((sb)->fd, (TO) * (sb)->blksz, SEEK_SET); \
-        write((sb)->fd, (p), (sb)->blksz);
-#define SEEK_READ(sb, FROM, p) lseek((sb)->fd, (FROM) * (sb)->blksz, SEEK_SET); \
-        read((sb)->fd, (p), (sb)->blksz);
+#define FALSE 0
+#define TRUE 1
+#define FOR_EACH(i, n) for((i) = 0; (i) < (n); (i)++)
+#define MAX(a, b) ((a) > (b))? a : b
+#define MIN(a, b) ((a) < (b))? a : b
+
+#define SEEK_WRITE(sb,TO, p) lseek((sb)->fd, (TO) * (sb)->blksz, SEEK_SET);write((sb)->fd, (p), (sb)->blksz);
+#define SEEK_READ(sb, FROM, p) lseek((sb)->fd, (FROM) * (sb)->blksz, SEEK_SET);read((sb)->fd, (p), (sb)->blksz);
 
     int getFileSize(const char* fname);
 
     uint64_t findFile(const struct superblock* sb, const char* fname);
 
-    int getINodeLinksCap(struct superblock* sb);
-    int getLinksLen(struct inode* node);
+    int getLinksMaxLen(const struct superblock* sb);
+    int getFileNameMaxLen(const struct superblock* sb);    
+
+    uint64_t getNodeLastLinkBlock(const struct superblock* sb, uint64_t linkBlock);
+
+    int getLinksLen(const struct inode* node);
+
+    int addFileToDir(const struct superblock* sb, const char* dirName,
+            const uint64_t fileBlock);
+    int addFileToDirBlock(const struct superblock* sb, const uint64_t dirBlock,
+            const uint64_t fileBlock);
+
+    int existsFile(const struct superblock* sb, const char* fname);
 
 
 
