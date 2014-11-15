@@ -7,7 +7,7 @@ OBJS = fs.o ricardo.o main.o utils.o StringProc.o
 all: $(OBJS)
 	$(CC) $(LFLAGS) $(OBJS) -o dcc_fs.exe
 	
-main.o:fs.o ricardo.o
+main.o:fs.o ricardo.o main.c
 	$(CC) $(CFLAGS) main.c	
 fs.o:fs.c fs.h utils.o
 	$(CC) $(CFLAGS) fs.c

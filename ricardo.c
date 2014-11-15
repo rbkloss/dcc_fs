@@ -202,7 +202,7 @@ uint64_t fs_get_block(struct superblock *sb) {
     free(fp_prev);
     free(fp);
     free(fp_next);
-    return sb->freelist;
+    return freeList;
 }
 
 int fs_put_block(struct superblock *sb, uint64_t block) {

@@ -122,9 +122,11 @@ void fs_free_check(struct superblock **sb, uint64_t fsize, uint64_t blksz)
 	*sb = fs_open(fname);
 	if((*sb)->freeblks != 0) printf("FAIL reopen sb->freeblks != 0\n");
 
+        int blocks_put = 0;
 	for(uint64_t i = 0; i < numblocks; i++) {
 		if(!blkmap[i]) continue;
 		fs_put_block(*sb, i);
+                blocks_put++;
 	}
 	if((*sb)->freeblks != freeblks) printf("FAIL sb->freeblks != freeblks\n");
 }
