@@ -112,8 +112,23 @@ uint64_t fs_get_block(struct superblock *sb);
  * accordingly. */
 int fs_put_block(struct superblock *sb, uint64_t block);
 
+/*
+ * Escreve cnt bytes de buf no sistema de arquivos apontado por sb. 
+ * Os dados serão escritos num arquivo chamado fname. 
+ * Retorna zero em caso de sucesso e um valor negativo em caso de erro;
+ *  em caso de erro, este será salvo em errno (p.ex., arquivo já existente,
+ *  espaço em disco insuficiente).
+ */
 int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cnt);
 
+/*
+ * Lê os primeiros bufsz bytes do arquivo fname e coloca no vetor apontado por buf.
+ * Retorna a quantidade de bytes lidos em caso de sucesso 
+ * (pode ser menos que bufsz se o arquivo for menor que bufsz)
+ * e um valor negativo em caso de erro. 
+ * Em caso de erro a variável errno deve ser utilizada para
+ * indicar qual erro aconteceu.
+ */
 ssize_t fs_read_file(struct superblock *sb, const char *fname, char *buf,
         size_t bufsz);
 

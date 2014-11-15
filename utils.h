@@ -27,20 +27,23 @@ extern "C" {
 #define SEEK_WRITE(sb,TO, p) lseek((sb)->fd, (TO) * (sb)->blksz, SEEK_SET);write((sb)->fd, (p), (sb)->blksz);
 #define SEEK_READ(sb, FROM, p) lseek((sb)->fd, (FROM) * (sb)->blksz, SEEK_SET);read((sb)->fd, (p), (sb)->blksz);
 
+    void cleanNode(struct inode* n);
+    void initNode(struct inode** n, size_t sz);
+
     int getFileSize(const char* fname);
 
     uint64_t findFile(const struct superblock* sb, const char* fname);
 
     int getLinksMaxLen(const struct superblock* sb);
-    int getFileNameMaxLen(const struct superblock* sb);    
+    int getFileNameMaxLen(const struct superblock* sb);
 
     uint64_t getNodeLastLinkBlock(const struct superblock* sb, uint64_t linkBlock);
 
     int getLinksLen(const struct inode* node);
 
-    int addFileToDir(const struct superblock* sb, const char* dirName,
+    int addFileToDir(struct superblock* sb, const char* dirName,
             const uint64_t fileBlock);
-    int addFileToDirBlock(const struct superblock* sb, const uint64_t dirBlock,
+    int addFileToDirBlock(struct superblock* sb, const uint64_t dirBlock,
             const uint64_t fileBlock);
 
     int existsFile(const struct superblock* sb, const char* fname);

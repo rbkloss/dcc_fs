@@ -237,7 +237,7 @@ int fs_put_block(struct superblock *sb, uint64_t block) {
 }
 
 int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cnt) {
-    const uint64_t blocksNeeded = cnt / sb->blksz;
+    const uint64_t blocksNeeded = MAX(1, cnt / sb->blksz);
     if (blocksNeeded > sb->freeblks) {
         errno = ENOSPC;
         return -1;
@@ -253,17 +253,19 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
     char** fileParts = getFileParts(fname, &len);
     uint64_t dirBlock = findFile(sb, fname);
     char* dirName = NULL;
-    struct inode* dirNode = malloc(sb->blksz);
-    struct inode* node = malloc(sb->blksz);
+    struct inode* dirNode, *node;
     struct nodeinfo* meta = malloc(sb->blksz);
+    initNode(&dirNode, sb->blksz);
+    initNode(&node, sb->blksz);
     SEEK_READ(sb, dirBlock, dirNode);
     SEEK_READ(sb, dirNode->meta, meta);
     dirName = meta->name;
-    if (strcmp(fileParts[len - 2], dirName) != 0) {
-        errno = EBADF;
-        return -1;
+    if (dirBlock != sb->root) {
+        if (strcmp(fileParts[MAX(0, len - 2)], dirName) != 0) {
+            errno = EBADF;
+            return -1;
+        }
     }
-    free(dirNode);
 
 
     uint64_t fileBlock = fs_get_block(sb);
@@ -272,8 +274,8 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
     ///properly write the file
     while (blocksUsed < blocksNeeded) {
         uint64_t block = fs_get_block(sb);
-        blocksList[blocksUsed++] = block;
-        char* blockContent = buf + sb->blksz * blocksUsed;
+        blocksList[blocksUsed] = block;
+        char* blockContent = buf + sb->blksz * (blocksUsed++);
         SEEK_WRITE(sb, block, blockContent);
     }
     strcpy(meta->name, fileParts[len - 1]);
@@ -290,8 +292,11 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
     blocksUsed = 0;
     while (blocksUsed < blocksNeeded) {
         int i = 0;
-        while (i < MAX(getLinksMaxLen(sb), blocksNeeded)) {
+        int linksLen = getLinksMaxLen(sb);
+        int N = MIN(linksLen, blocksNeeded);
+        while (i < N) {
             node->links[i] = blocksList[i];
+            i++;
             blocksUsed++;
         }
         if (blocksUsed < blocksNeeded) {
@@ -307,10 +312,54 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
             SEEK_WRITE(sb, node->meta, meta);
         }
     }
+    SEEK_WRITE(sb, nodeBlock, node);
 
     free(meta);
     free(node);
     free(fileParts);
+    free(dirNode);
 
     return 0;
+}
+
+ssize_t fs_read_file(struct superblock *sb, const char *fname, char *buf,
+        size_t bufsz) {
+    if (existsFile(sb, fname) == FALSE) {
+        errno = ENOENT;
+        return -1;
+    }
+    int len = 0;
+    char** fileParts = getFileParts(fname, &len);
+
+    uint64_t fileBlock = findFile(sb, fname);
+
+    struct inode* node = malloc(sb->blksz);
+    struct nodeinfo* meta = malloc(sb->blksz);
+
+    SEEK_READ(sb, fileBlock, node);
+    SEEK_READ(sb, node->meta, meta);
+    assert(strcmp(meta->name, fileParts[len - 1]) == 0);
+
+    size_t size = MIN(meta->size, bufsz);
+    size = MAX(sb->blksz, size);
+    size_t read_blocks = 0;
+
+    char* buf_p = malloc(size);
+    char* p = buf_p;
+    do {
+        int i = 0;
+        while (node->links[i] != 0) {
+            SEEK_READ(sb, node->links[i++], p);
+            p = p + sb->blksz;
+            read_blocks++;
+        }
+        if (node->next == 0)break;
+        SEEK_READ(sb, node->next, node);
+    } while (node->next != 0);
+    strcpy(buf, buf_p);
+    free(fileParts);
+    free(meta);
+    free(node);
+    free(buf_p);
+    return size;
 }

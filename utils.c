@@ -3,6 +3,19 @@
 #include "fs.h"
 #include "StringProc.h"
 
+void cleanNode(struct inode* n) {
+    n->links[0] = 0;
+    n->meta = 0;
+    n->mode = 0;
+    n->next = 0;
+    n->parent = 0;
+}
+
+void initNode(struct inode** n, size_t sz) {
+    *n = (struct inode*) malloc(sz);
+    cleanNode(*n);
+}
+
 int getFileSize(const char* fname) {
     FILE *fd = fopen(fname, "r");
     fseek(fd, 0, SEEK_END);
@@ -13,7 +26,7 @@ int getFileSize(const char* fname) {
 }
 
 int getLinksMaxLen(const struct superblock* sb) {
-    int ans = sb->blksz - sizeof (struct inode);
+    int ans = (sb->blksz - sizeof (struct inode)) / sizeof (uint64_t);
     return ans;
 }
 
@@ -41,8 +54,9 @@ uint64_t getNodeLastLinkBlock(const struct superblock* sb, uint64_t nodeBlock) {
 }
 
 uint64_t findFile(const struct superblock* sb, const char* fname) {
-    struct inode* node = (struct inode*) malloc(sizeof (sb->blksz));
-    struct inode *ent = (struct inode*) malloc(sizeof (sb->blksz));
+    struct inode* node, *ent;
+    initNode(&node, sb->blksz);
+    initNode(&ent, sb->blksz);
     struct nodeinfo *meta = (struct nodeinfo*) malloc(sizeof (sb->blksz));
     int len = 0;
     char** fileParts = getFileParts(fname, &len);
@@ -51,24 +65,24 @@ uint64_t findFile(const struct superblock* sb, const char* fname) {
     SEEK_READ(sb, fileBlock, node);
     int it = 0;
     while (it < len) {
-        int nEnts = getLinksLen(node);
         int foundEnt = FALSE;
         int i = 0;
-        while (node->next != 0) {
-
-            FOR_EACH(i, nEnts) {
+        do {
+            while (node->links[i] != 0) {
                 SEEK_READ(sb, node->links[i], ent);
                 SEEK_READ(sb, ent->meta, meta);
                 if (strcmp(meta->name, fileParts[it]) == 0) {
                     foundEnt = TRUE;
+                    fileBlock = node->links[i];
+                    it++;
                     break;
                 }
+                i++;
             }
-            if (foundEnt)break;
+            if ((foundEnt || node->next == 0))break;
             SEEK_READ(sb, node->next, node);
-        }
+        } while (node->next != 0);
         if (foundEnt) {
-            fileBlock = node->links[i];
             SEEK_READ(sb, fileBlock, node);
         } else {
             return fileBlock;
@@ -80,18 +94,25 @@ uint64_t findFile(const struct superblock* sb, const char* fname) {
 int existsFile(const struct superblock* sb, const char* fname) {
     struct inode* dirNode = NULL;
     struct nodeinfo* meta = NULL;
+    initNode(&dirNode, sb->blksz);
+    meta = (struct nodeinfo*) malloc(sb->blksz);
     uint64_t dirBlock = findFile(sb, fname);
-    SEEK_READ(sb, dirBlock, dirNode);
+    lseek((sb)->fd, (dirBlock) * (sb)->blksz, SEEK_SET);
+    read((sb)->fd, (dirNode), (sb)->blksz);
     SEEK_READ(sb, dirNode->meta, meta);
     int len = 0;
     char** fileparts = getFileParts(fname, &len);
-    if (strcmp(meta->name, fileparts[len]) == 0) {
+    if (strcmp(meta->name, fileparts[len - 1]) == 0) {
+        free(meta);
+        free(dirNode);
         return TRUE;
     }
+    free(meta);
+    free(dirNode);
     return FALSE;
 }
 
-int addFileToDir(const struct superblock* sb, const char* dirName,
+int addFileToDir(struct superblock* sb, const char* dirName,
         const uint64_t fileBlock) {
     struct inode*dirNode = NULL;
     struct nodeinfo* meta = NULL;
@@ -133,7 +154,7 @@ int addFileToDir(const struct superblock* sb, const char* dirName,
     return FALSE;
 }
 
-int addFileToDirBlock(const struct superblock* sb, const uint64_t dirBlock,
+int addFileToDirBlock(struct superblock* sb, const uint64_t dirBlock,
         const uint64_t fileBlock) {
     struct inode *dirNode = NULL;
     struct nodeinfo* meta = NULL;
