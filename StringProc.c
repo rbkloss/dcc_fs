@@ -55,5 +55,5 @@ void freeFileParts(char*** fParts, const int len) {
         (*fParts)[i] = NULL;
     }
     free(*fParts);
-    fParts = NULL;
+    *fParts = NULL;
 }

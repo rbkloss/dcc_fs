@@ -53,7 +53,7 @@ uint64_t getNodeLastLinkBlock(const struct superblock* sb, uint64_t nodeBlock) {
     return ans;
 }
 
-uint64_t findFile(const struct superblock* sb, const char* fname,  int* exists) {
+uint64_t findFile(const struct superblock* sb, const char* fname, int* exists) {
     assert(exists != NULL);
     struct inode* node, *ent;
     initNode(&node, sb->blksz);
@@ -61,7 +61,7 @@ uint64_t findFile(const struct superblock* sb, const char* fname,  int* exists) 
     struct nodeinfo *meta = (struct nodeinfo*) malloc(sb->blksz);
     int len = 0;
     char** fileParts = getFileParts(fname, &len);
-    
+
     *exists = FALSE;
     uint64_t fileBlock = sb->root;
     SEEK_READ(sb, fileBlock, node);
@@ -88,18 +88,26 @@ uint64_t findFile(const struct superblock* sb, const char* fname,  int* exists) 
             SEEK_READ(sb, fileBlock, node);
         } else {
             *exists = FALSE;
+            free(node);
+            free(ent);
+            free(meta);
+            freeFileParts(&fileParts, len);
             return fileBlock;
         }
     }
-    if(it >= len) *exists = TRUE;
+
+    if (it >= len) *exists = TRUE;
     freeFileParts(&fileParts, len);
+    free(node);
+    free(ent);
+    free(meta);
     return fileBlock;
 }
 
 int existsFile(const struct superblock* sb, const char* fname) {
     int exists = 0;
     findFile(sb, fname, &exists);
-    
+
     return (exists);
 }
 

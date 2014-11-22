@@ -34,29 +34,8 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
 }
 
-void fs_io_test(struct superblock *sb, uint64_t fsize, uint64_t blksz) {
-    if (sb->magic != 0xdcc605f5) {
-        printf("FAIL magic\n");
-    }
-    if (sb->blks != fsize / blksz) {
-        printf("FAIL number of blocks\n");
-    }
-    if (sb->blksz != blksz) {
-        printf("FAIL block size\n");
-    }
-
-    char* buf = "diga oi lilica";
-    char* buf_read = malloc(15);
-    char* fname = "/teste";
-    fs_write_file(sb, fname, buf, strlen(buf));
-    fs_read_file(sb, fname, buf_read, strlen(buf));
-
-    assert(strcmp(buf, buf_read) == 0);
-}
-
 void test(uint64_t fsize, uint64_t blksz) {
     int err;
-
     char *buf = malloc(fsize);
     if (!buf) {
         perror(NULL);
@@ -113,6 +92,29 @@ void test(uint64_t fsize, uint64_t blksz) {
     }
 
     if (fs_close(sb)) perror("open_close");
+    free(buf);
+    buf = NULL;
+}
+
+void fs_io_test(struct superblock *sb, uint64_t fsize, uint64_t blksz) {
+    if (sb->magic != 0xdcc605f5) {
+        printf("FAIL magic\n");
+    }
+    if (sb->blks != fsize / blksz) {
+        printf("FAIL number of blocks\n");
+    }
+    if (sb->blksz != blksz) {
+        printf("FAIL block size\n");
+    }
+
+    char* buf = "diga oi lilica";
+    char* buf_read = malloc(15);
+    char* fname = "/teste";
+    fs_write_file(sb, fname, buf, strlen(buf));
+    fs_read_file(sb, fname, buf_read, strlen(buf));
+
+    assert(strcmp(buf, buf_read) == 0);
+    free(buf_read);
 }
 
 void fs_free_check(struct superblock **sb, uint64_t fsize, uint64_t blksz) {
@@ -166,6 +168,7 @@ void fs_free_check(struct superblock **sb, uint64_t fsize, uint64_t blksz) {
         blocks_put++;
     }
     if ((*sb)->freeblks != freeblks) printf("FAIL sb->freeblks != freeblks\n");
+    //free(fp);
 }
 
 void fs_check(const struct superblock *sb, uint64_t fsize, uint64_t blksz) {
