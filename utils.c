@@ -1,4 +1,4 @@
-
+#include <assert.h>
 #include "utils.h"
 #include "fs.h"
 #include "StringProc.h"
@@ -53,14 +53,16 @@ uint64_t getNodeLastLinkBlock(const struct superblock* sb, uint64_t nodeBlock) {
     return ans;
 }
 
-uint64_t findFile(const struct superblock* sb, const char* fname) {
+uint64_t findFile(const struct superblock* sb, const char* fname,  int* exists) {
+    assert(exists != NULL);
     struct inode* node, *ent;
     initNode(&node, sb->blksz);
     initNode(&ent, sb->blksz);
-    struct nodeinfo *meta = (struct nodeinfo*) malloc(sizeof (sb->blksz));
+    struct nodeinfo *meta = (struct nodeinfo*) malloc(sb->blksz);
     int len = 0;
     char** fileParts = getFileParts(fname, &len);
-
+    
+    *exists = FALSE;
     uint64_t fileBlock = sb->root;
     SEEK_READ(sb, fileBlock, node);
     int it = 0;
@@ -85,40 +87,30 @@ uint64_t findFile(const struct superblock* sb, const char* fname) {
         if (foundEnt) {
             SEEK_READ(sb, fileBlock, node);
         } else {
+            *exists = FALSE;
             return fileBlock;
         }
     }
+    if(it >= len) *exists = TRUE;
+    freeFileParts(&fileParts, len);
     return fileBlock;
 }
 
 int existsFile(const struct superblock* sb, const char* fname) {
-    struct inode* dirNode = NULL;
-    struct nodeinfo* meta = NULL;
-    initNode(&dirNode, sb->blksz);
-    meta = (struct nodeinfo*) malloc(sb->blksz);
-    uint64_t dirBlock = findFile(sb, fname);
-    lseek((sb)->fd, (dirBlock) * (sb)->blksz, SEEK_SET);
-    read((sb)->fd, (dirNode), (sb)->blksz);
-    SEEK_READ(sb, dirNode->meta, meta);
-    int len = 0;
-    char** fileparts = getFileParts(fname, &len);
-    if (strcmp(meta->name, fileparts[len - 1]) == 0) {
-        free(meta);
-        free(dirNode);
-        return TRUE;
-    }
-    free(meta);
-    free(dirNode);
-    return FALSE;
+    int exists = 0;
+    findFile(sb, fname, &exists);
+    
+    return (exists);
 }
 
 int addFileToDir(struct superblock* sb, const char* dirName,
         const uint64_t fileBlock) {
+    int exists;
     struct inode*dirNode = NULL;
     struct nodeinfo* meta = NULL;
     dirNode = malloc(sb->blksz);
     meta = malloc(sb->blksz);
-    uint64_t dirBlock = findFile(sb, dirName);
+    uint64_t dirBlock = findFile(sb, dirName, &exists);
     SEEK_READ(sb, dirBlock, dirNode);
     SEEK_READ(sb, dirNode->meta, meta);
     int len = 0;
@@ -149,6 +141,7 @@ int addFileToDir(struct superblock* sb, const char* dirName,
     SEEK_WRITE(sb, dirBlock, dirNode);
     SEEK_WRITE(sb, dirNode->meta, meta);
 
+    freeFileParts(&fileparts, len);
     free(dirNode);
     free(meta);
     return FALSE;

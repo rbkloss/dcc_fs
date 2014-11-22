@@ -32,7 +32,7 @@ extern "C" {
 
     int getFileSize(const char* fname);
 
-    uint64_t findFile(const struct superblock* sb, const char* fname);
+    uint64_t findFile(const struct superblock* sb, const char* fname, int* exists);
 
     int getLinksMaxLen(const struct superblock* sb);
     int getFileNameMaxLen(const struct superblock* sb);

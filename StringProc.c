@@ -48,3 +48,12 @@ char* getParentNodeName(const char*fname) {
     free(name);
     return aux;
 }
+
+void freeFileParts(char*** fParts, const int len) {
+    for (int i = 0; i < len; i++) {
+        free((*fParts)[i]);
+        (*fParts)[i] = NULL;
+    }
+    free(*fParts);
+    fParts = NULL;
+}

@@ -249,9 +249,9 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
         return -1;
     }
 
-    int len = 0;
+    int len = 0, exists = 0;    
     char** fileParts = getFileParts(fname, &len);
-    uint64_t dirBlock = findFile(sb, fname);
+    uint64_t dirBlock = findFile(sb, fname,  &exists);
     char* dirName = NULL;
     struct inode* dirNode, *node;
     struct nodeinfo* meta = malloc(sb->blksz);
@@ -316,7 +316,7 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
 
     free(meta);
     free(node);
-    free(fileParts);
+    freeFileParts(&fileParts, len);
     free(dirNode);
 
     return 0;
@@ -328,10 +328,10 @@ ssize_t fs_read_file(struct superblock *sb, const char *fname, char *buf,
         errno = ENOENT;
         return -1;
     }
-    int len = 0;
+    int len = 0, exists = 0;
     char** fileParts = getFileParts(fname, &len);
 
-    uint64_t fileBlock = findFile(sb, fname);
+    uint64_t fileBlock = findFile(sb, fname, &exists);
 
     struct inode* node = malloc(sb->blksz);
     struct nodeinfo* meta = malloc(sb->blksz);
@@ -357,7 +357,7 @@ ssize_t fs_read_file(struct superblock *sb, const char *fname, char *buf,
         SEEK_READ(sb, node->next, node);
     } while (node->next != 0);
     strcpy(buf, buf_p);
-    free(fileParts);
+    freeFileParts(&fileParts, len);
     free(meta);
     free(node);
     free(buf_p);

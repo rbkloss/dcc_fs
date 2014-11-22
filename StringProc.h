@@ -20,6 +20,8 @@ strcpy((str_d), (str_s));
     
     char** getFileParts(const char* fname, int* len);
     char* getParentNodeName(const char*fname);
+    
+    void freeFileParts(char*** fParts, const int len);
 
 
 #ifdef	__cplusplus
