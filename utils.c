@@ -27,6 +27,7 @@ int getFileSize(const char* fname) {
 
 int getLinksMaxLen(const struct superblock* sb) {
     int ans = (sb->blksz - sizeof (struct inode)) / sizeof (uint64_t);
+		printf ("links size: %d\n", ans);
     return ans;
 }
 
@@ -172,6 +173,7 @@ int addFileToDirBlock(struct superblock* sb, const uint64_t dirBlock,
         uint64_t lastLinkBlock = getNodeLastLinkBlock(sb, dirBlock);
         struct inode* lastLinkNode = NULL;
         lastLinkNode = malloc(sb->blksz);
+				SEEK_READ (sb, lastLinkBlock, lastLinkNode);
         if (lastLinkNode->next != 0) {
             exit(EXIT_FAILURE);
         }
