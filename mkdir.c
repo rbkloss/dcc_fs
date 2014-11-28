@@ -60,13 +60,36 @@ int init_nodeinfo_struct (struct superblock* sb, const char* dname, struct nodei
 	char** dname_array = getFileParts (dname, &size);
   int max_filename_size = getFileNameMaxLen (sb);
   int foldername_size = strlen (dname_array[size-1]);
-  if (max_filename_size < foldername_size)
+  if (max_filename_size < foldername_size){
     return invalid;
+  }
 	
   strcpy (n_info->name, dname_array[size-1]);
   freeFileParts (&dname_array, size);
   
   return success;
+}
+
+int checkfather_path (struct superblock *sb, const char *dname, struct inode* father){
+  
+  struct nodeinfo* info_pai = (struct nodeinfo*) malloc (sb->blksz);
+  SEEK_READ (sb, father->meta, info_pai);
+  
+  int size = 0;
+  char **dname_array = getFileParts (dname, &size);
+  
+  int valid = strcmp (dname_array[size-2], info_pai->name);
+
+  freeFileParts (&dname_array, size);
+  free (info_pai);
+  info_pai = NULL;
+
+  if (valid == 0){
+    return success;
+  }
+  else {
+    return invalid;
+  }
 }
 
 
@@ -88,7 +111,7 @@ int fs_mkdir(struct superblock *sb, const char *dname){
     return invalid;
   }
 
-  //struct inode *father = (struct inode*) malloc (sb->blksz);
+  struct inode *father = (struct inode*) malloc (sb->blksz);
   struct inode *folder = (struct inode*) malloc (sb->blksz);
   struct nodeinfo *n_info = (struct nodeinfo*) malloc (sb->blksz);
 
@@ -99,14 +122,39 @@ int fs_mkdir(struct superblock *sb, const char *dname){
 	int status = init_nodeinfo_struct (sb, dname, n_info, nodeinfo_block);
 
   if (status == invalid){
+    free (father);
+    father = NULL;
+
+    free (folder);
+    folder = NULL;
+
+    free (n_info);
+    n_info = NULL;
+
     errno = ENAMETOOLONG;
     return invalid;
   }
- 
-  if (!exists){
-    /* Read father inode stored in file */
-    // SEEK_READ (sb, fileBlock, father);
 
+  /* Read father inode stored in file */
+  SEEK_READ (sb, fileBlock, father);
+  status = checkfather_path (sb, dname, father);
+
+  if (status == invalid){
+    free (father);
+    father = NULL;
+
+    free (folder);
+    folder = NULL;
+
+    free (n_info);
+    n_info = NULL;
+    
+    errno = ENOENT;
+    return invalid;
+  }
+ 
+  /* Ok, proceed */
+  if (!exists){
 		insertInBlockLinks (sb, fileBlock, folder_block);
 
 		/* store both inodes related to the folder that
@@ -116,6 +164,14 @@ int fs_mkdir(struct superblock *sb, const char *dname){
     SEEK_WRITE (sb, nodeinfo_block, n_info);
     
   }
+
+
+  free (father);
+  father = NULL;
+  free (folder);
+  folder = NULL;
+  free (n_info);
+  n_info = NULL;
 
 	return success;
 }
