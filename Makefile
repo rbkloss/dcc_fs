@@ -2,7 +2,7 @@ CC= gcc -std=gnu99
 CFLAGS= -Wall -g -c
 LFLAGS = -Wall -g
 
-OBJS = fs.o ricardo.o mkdir.o main.o utils.o StringProc.o
+OBJS = fs.o ricardo.o francisco.o mkdir.o main.o utils.o StringProc.o
 
 all: $(OBJS)
 	$(CC) $(LFLAGS) $(OBJS) -o dcc_fs.exe
@@ -13,7 +13,7 @@ fs.o:fs.c fs.h utils.o
 	$(CC) $(CFLAGS) fs.c
 mkdir.o:fs.h mkdir.c
 	$(CC) $(CFLAGS) mkdir.c
-ricardo.o:fs.h ricardo.c utils.o
+ricardo.o:fs.h ricardo.c utils.o francisco.c
 	$(CC) $(CFLAGS) ricardo.c
 utils.o: utils.c utils.h
 	$(CC) $(CFLAGS) utils.c
