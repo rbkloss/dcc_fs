@@ -60,6 +60,10 @@ uint64_t findFile(const struct superblock* sb, const char* fname, int* exists) {
     initNode(&ent, sb->blksz);
     struct nodeinfo *meta = (struct nodeinfo*) malloc(sb->blksz);
     int len = 0;
+    
+    if (strcmp (fname, "/") == 0)
+      return 1;
+
     char** fileParts = getFileParts(fname, &len);
 
     *exists = FALSE;
