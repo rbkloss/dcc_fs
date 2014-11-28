@@ -27,7 +27,6 @@ int getFileSize(const char* fname) {
 
 int getLinksMaxLen(const struct superblock* sb) {
     int ans = (sb->blksz - sizeof (struct inode)) / sizeof (uint64_t);
-		printf ("links size: %d\n", ans);
     return ans;
 }
 
@@ -112,7 +111,7 @@ int existsFile(const struct superblock* sb, const char* fname) {
     return (exists);
 }
 
-int addFileToDir(struct superblock* sb, const char* dirName,
+int insertBlock2NodeLinks(struct superblock* sb, const char* dirName,
         const uint64_t fileBlock) {
     int exists;
     struct inode*dirNode = NULL;
@@ -134,6 +133,7 @@ int addFileToDir(struct superblock* sb, const char* dirName,
         uint64_t lastLinkBlock = getNodeLastLinkBlock(sb, dirBlock);
         struct inode* lastLinkNode = NULL;
         lastLinkNode = malloc(sb->blksz);
+        SEEK_READ(sb, lastLinkBlock, lastLinkNode);
         if (lastLinkNode->next != 0) {
             exit(EXIT_FAILURE);
         }
@@ -156,24 +156,24 @@ int addFileToDir(struct superblock* sb, const char* dirName,
     return FALSE;
 }
 
-int addFileToDirBlock(struct superblock* sb, const uint64_t dirBlock,
-        const uint64_t fileBlock) {
+int insertInBlockLinks(struct superblock* sb, const uint64_t destBlock,
+        const uint64_t block2Add) {
     struct inode *dirNode = NULL;
     struct nodeinfo* meta = NULL;
     dirNode = malloc(sb->blksz);
     meta = malloc(sb->blksz);
-    SEEK_READ(sb, dirBlock, dirNode);
+    SEEK_READ(sb, destBlock, dirNode);
     SEEK_READ(sb, dirNode->meta, meta);
     if ((++meta->size) % getLinksMaxLen(sb) == 0) {
         //needs to create another link block      
         struct inode* linknode = NULL;
         linknode = malloc(sb->blksz);
-        linknode->links[0] = fileBlock;
+        linknode->links[0] = block2Add;
         linknode->links[1] = 0;
-        uint64_t lastLinkBlock = getNodeLastLinkBlock(sb, dirBlock);
+        uint64_t lastLinkBlock = getNodeLastLinkBlock(sb, destBlock);
         struct inode* lastLinkNode = NULL;
         lastLinkNode = malloc(sb->blksz);
-				SEEK_READ (sb, lastLinkBlock, lastLinkNode);
+        SEEK_READ(sb, lastLinkBlock, lastLinkNode);
         if (lastLinkNode->next != 0) {
             exit(EXIT_FAILURE);
         }
@@ -184,10 +184,10 @@ int addFileToDirBlock(struct superblock* sb, const uint64_t dirBlock,
         free(lastLinkNode);
     } else {
         int linkLen = getLinksLen(dirNode);
-        dirNode->links[linkLen] = fileBlock;
+        dirNode->links[linkLen] = block2Add;
         dirNode->links[linkLen + 1] = 0;
     }
-    SEEK_WRITE(sb, dirBlock, dirNode);
+    SEEK_WRITE(sb, destBlock, dirNode);
     SEEK_WRITE(sb, dirNode->meta, meta);
 
     free(dirNode);
