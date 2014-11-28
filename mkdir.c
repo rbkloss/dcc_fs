@@ -81,7 +81,7 @@ int fs_mkdir(struct superblock *sb, const char *dname){
     return notvalid;
   }
 
-  struct inode *father = (struct inode*) malloc (sb->blksz);
+  //struct inode *father = (struct inode*) malloc (sb->blksz);
   struct inode *folder = (struct inode*) malloc (sb->blksz);
   struct nodeinfo *n_info = (struct nodeinfo*) malloc (sb->blksz);
 
@@ -95,7 +95,7 @@ int fs_mkdir(struct superblock *sb, const char *dname){
     /* Read father inode stored in file */
     // SEEK_READ (sb, fileBlock, father);
 
-		addFileToDirBlock (sb, fileBlock, folder_block);
+		insertInBlockLinks (sb, fileBlock, folder_block);
 
 		/* store both inodes related to the folder that
 			 has been just created
