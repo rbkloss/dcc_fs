@@ -15,7 +15,7 @@
 
 #define SB_SIZE 52
 
-#define notvalid -1
+#define invalid -1
 #define success 0
 
 /*
@@ -46,20 +46,27 @@ void init_folder_struct (struct inode* folder, uint64_t folder_block, uint64_t n
 
 }
 
-void init_nodeinfo_struct (const char* dname, struct nodeinfo* n_info, uint64_t nodeinfo_block){
+int init_nodeinfo_struct (struct superblock* sb, const char* dname, struct nodeinfo* n_info, uint64_t nodeinfo_block){
 	/* nodeinfo properties */
 
   /* =size contains the number of files in the directory*/
   n_info->size = 0;
+
   /* =name contains the name of the new folder
    * i.e. /home/user/dir1/folder
 	 * =name is equals to folder
    */
 	int size = 0;
 	char** dname_array = getFileParts (dname, &size);
-	strcpy (n_info->name, dname_array[size-1]);
+  int max_filename_size = getFileNameMaxLen (sb);
+  int foldername_size = strlen (dname_array[size-1]);
+  if (max_filename_size < foldername_size)
+    return invalid;
+	
+  strcpy (n_info->name, dname_array[size-1]);
   freeFileParts (&dname_array, size);
-
+  
+  return success;
 }
 
 
@@ -68,7 +75,7 @@ int fs_mkdir(struct superblock *sb, const char *dname){
   if (!sb->freeblks){
     // disk is full
     errno = ENOSPC;
-    return notvalid;
+    return invalid;
   }
 
   int exists = 0;
@@ -78,7 +85,7 @@ int fs_mkdir(struct superblock *sb, const char *dname){
   if (exists){
     // dir already exist;
     errno = EEXIST;
-    return notvalid;
+    return invalid;
   }
 
   //struct inode *father = (struct inode*) malloc (sb->blksz);
@@ -89,7 +96,12 @@ int fs_mkdir(struct superblock *sb, const char *dname){
   uint64_t nodeinfo_block = fs_get_block (sb);
 
 	init_folder_struct (folder, folder_block, nodeinfo_block);
-	init_nodeinfo_struct (dname, n_info, nodeinfo_block);
+	int status = init_nodeinfo_struct (sb, dname, n_info, nodeinfo_block);
+
+  if (status == invalid){
+    errno = ENAMETOOLONG;
+    return invalid;
+  }
  
   if (!exists){
     /* Read father inode stored in file */
