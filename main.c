@@ -8,6 +8,7 @@
 #include <assert.h>
 
 #include "fs.h"
+//#define MKDIR
 
 void test(uint64_t fsize, uint64_t blksz);
 void fs_check(const struct superblock *sb, uint64_t fsize, uint64_t blksz);
@@ -151,7 +152,9 @@ void fs_io_test(uint64_t fsize, uint64_t blksz) {
     assert(strcmp(buf_str, buf_read) == 0);
 
     free(fs_list_dir(sb, "/"));
+#ifdef MKDIR
     free(fs_list_dir(sb, "/dir"));
+#endif
     if (fs_delete_file(sb, fname) == -1) {
         perror("Delete File: ");
     }
