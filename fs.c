@@ -380,9 +380,6 @@ ssize_t fs_read_file(struct superblock *sb, const char *fname, char *buf,
     return size;
 }
 
-/*
- * Francisco:
- */
 int fs_delete_file(struct superblock *sb, const char *fname) { //o proprio nome ja diz.
     int i = 0, found, maxLink, ultimo;
     uint64_t fileBlock, fileLinkBlk, lastBlock, folderBlock; //numero do bloco e do bloco do link no diretorio que tem ele
