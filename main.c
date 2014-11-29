@@ -8,7 +8,7 @@
 #include <assert.h>
 
 #include "fs.h"
-//#define MKDIR
+#define MKDIR
 
 void test(uint64_t fsize, uint64_t blksz);
 void fs_check(const struct superblock *sb, uint64_t fsize, uint64_t blksz);
