@@ -121,7 +121,9 @@ void fs_io_test(uint64_t fsize, uint64_t blksz) {
     strcpy(buf_str, "diga oi lilica");
     strcpy(f2name, "/dir/a");
     
-    fs_mkdir(sb, "/dir/");    
+    if(fs_mkdir(sb, "/dir/") == -1){
+        perror("mkdir:");
+    }
 
     if (fs_write_file(sb, fname, buf_str, strlen(buf_str) + 1) == -1) {
         perror("WriteFile Error!\n");
