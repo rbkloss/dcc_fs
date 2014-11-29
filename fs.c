@@ -543,7 +543,7 @@ char * fs_list_dir(struct superblock *sb, const char *dname) { //lista tudo o qu
 /*
 void inc_folder_size (struct superblock *sb, uint64_t father_nodeinfo_block, const char *dname){
 
-        struct nodeinfo *n_info = (struct nodeinfo*) malloc (sb->blksz);
+        struct nodeinfo *n_infgit pullo = (struct nodeinfo*) malloc (sb->blksz);
         SEEK_READ (sb, father_nodeinfo_block, n_info);
 
         n_info->size++;
