@@ -24,8 +24,9 @@ extern "C" {
 #define MAX(a, b) ((a) > (b))? a : b
 #define MIN(a, b) ((a) < (b))? a : b
 
-#define SEEK_WRITE(sb,TO, p) lseek((sb)->fd, (TO) * (sb)->blksz, SEEK_SET);write((sb)->fd, (p), (sb)->blksz);
-#define SEEK_READ(sb, FROM, p) lseek((sb)->fd, (FROM) * (sb)->blksz, SEEK_SET);read((sb)->fd, (p), (sb)->blksz);
+    void seek_write(const struct superblock* sb, const uint64_t to, void * n);
+
+    void seek_read(const struct superblock* sb, const uint64_t from, void* n);
 
     void cleanNode(struct inode* n);
     void initNode(struct inode** n, size_t sz);
@@ -41,10 +42,10 @@ extern "C" {
 
     int getLinksLen(const struct inode* node);
 
-    int addFileToDir(struct superblock* sb, const char* dirName,
+    int InsertInNode(struct superblock* sb, const char* dirName,
             const uint64_t fileBlock);
-    int addFileToDirBlock(struct superblock* sb, const uint64_t dirBlock,
-            const uint64_t fileBlock);
+    int insertInBlock(struct superblock* sb, const uint64_t destBlock,
+            const uint64_t insertionBlock);
 
     int existsFile(const struct superblock* sb, const char* fname);
 
