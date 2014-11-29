@@ -42,7 +42,9 @@ extern "C" {
 
     int getLinksLen(const struct inode* node);
 
-    int InsertInNode(struct superblock* sb, const char* dirName,
+    int insertBlock2NodeLinks(struct superblock* sb, const char* dirName,
+            const uint64_t fileBlock);
+    int insertInBlockLinks(struct superblock* sb, const uint64_t dirBlock,
             const uint64_t fileBlock);
     int insertInBlock(struct superblock* sb, const uint64_t destBlock,
             const uint64_t insertionBlock);
