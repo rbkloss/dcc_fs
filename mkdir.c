@@ -18,19 +18,6 @@
 #define invalid -1
 #define success 0
 
-/*
-void inc_folder_size (struct superblock *sb, uint64_t father_nodeinfo_block, const char *dname){
-
-	struct nodeinfo *n_info = (struct nodeinfo*) malloc (sb->blksz);
-	SEEK_READ (sb, father_nodeinfo_block, n_info);
-
-	n_info->size++;
-
-	SEEK_WRITE (sb, father_nodeinfo_block, n_info);
-
-}
-*/
-
 void init_folder_struct (struct inode* folder, uint64_t folder_block, uint64_t nodeinfo_block) {
 
 	 /* inode properties for a folder */ 
