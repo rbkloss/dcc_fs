@@ -38,58 +38,63 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
 }
 
-void test(uint64_t fsize, uint64_t blksz)
-{
-	int err;
+void test(uint64_t fsize, uint64_t blksz) {
+    int err;
 
-	char *buf = malloc(fsize);
-	if(!buf) { perror(NULL); exit(EXIT_FAILURE); }
-	memset(buf, 0, fsize);
+    char *buf = malloc(fsize);
+    if (!buf) {
+        perror(NULL);
+        exit(EXIT_FAILURE);
+    }
+    memset(buf, 0, fsize);
 
-	unlink(fname);
-	FILE *fd = fopen(fname, "w");
-	fwrite(buf, 1, fsize, fd);
-	fclose(fd);
+    unlink(fname);
+    FILE *fd = fopen(fname, "w");
+    fwrite(buf, 1, fsize, fd);
+    fclose(fd);
 
-	struct superblock *sb = fs_open(fname);
-	if(errno != EBADF) { printf("FAIL did not set errno\n"); }
-	if(sb != NULL) { printf("FAIL unformatted img\n"); }
+    struct superblock *sb = fs_open(fname);
+    if (errno != EBADF) {
+        printf("FAIL did not set errno\n");
+    }
+    if (sb != NULL) {
+        printf("FAIL unformatted img\n");
+    }
 
-	sb = fs_format(fname, blksz);
-	err = errno;
-	if(blksz < MIN_BLOCK_SIZE) {
-		if(err != EINVAL) printf("FAIL did not set errno\n");
-		if(sb != NULL) printf("FAIL formatted too small blocks\n");
-	}
-	if(fsize/blksz < MIN_BLOCK_COUNT) {
-		if(err != ENOSPC) printf("FAIL did not set errno\n");
-		if(sb != NULL) printf("FAIL formatted too small volume\n");
-	}
+    sb = fs_format(fname, blksz);
+    err = errno;
+    if (blksz < MIN_BLOCK_SIZE) {
+        if (err != EINVAL) printf("FAIL did not set errno\n");
+        if (sb != NULL) printf("FAIL formatted too small blocks\n");
+    }
+    if (fsize / blksz < MIN_BLOCK_COUNT) {
+        if (err != ENOSPC) printf("FAIL did not set errno\n");
+        if (sb != NULL) printf("FAIL formatted too small volume\n");
+    }
 
-	if(sb == NULL) return;
+    if (sb == NULL) return;
 
-	fs_check(sb, fsize, blksz);
-	fs_free_check(&sb, fsize, blksz);
-	fs_check(sb, fsize, blksz);
+    fs_check(sb, fsize, blksz);
+    fs_free_check(&sb, fsize, blksz);
+    fs_check(sb, fsize, blksz);
 
-	if(fs_close(sb)) perror("format_close");
+    if (fs_close(sb)) perror("format_close");
 
-	sb = fs_open(fname);
-	if(!sb) perror("open");
+    sb = fs_open(fname);
+    if (!sb) perror("open");
 
-	fs_check(sb, fsize, blksz);
-	fs_free_check(&sb, fsize, blksz);
-	fs_check(sb, fsize, blksz);
+    fs_check(sb, fsize, blksz);
+    fs_free_check(&sb, fsize, blksz);
+    fs_check(sb, fsize, blksz);
 
-	if(fs_open(fname)) {
-		printf("FAIL opened FS twice\n");
-	} else if(errno != EBUSY) {
-		printf("FAIL did not set errno EBUSY on fs reopen\n");
-	}
+    if (fs_open(fname)) {
+        printf("FAIL opened FS twice\n");
+    } else if (errno != EBUSY) {
+        printf("FAIL did not set errno EBUSY on fs reopen\n");
+    }
 
-	if(fs_close(sb)) perror("open_close");
+    if (fs_close(sb)) perror("open_close");
 }
-
 
 void fs_io_test(uint64_t fsize, uint64_t blksz) {
     char *buf = malloc(fsize);
@@ -119,32 +124,37 @@ void fs_io_test(uint64_t fsize, uint64_t blksz) {
     strcpy(buf_str2, "hallo");
     strcpy(fname, "/teste");
     strcpy(buf_str, "diga oi lilica");
+#ifdef MKDIR
     strcpy(f2name, "/dir/a");
-    
-    if(fs_mkdir(sb, "/dir/") == -1){
-        perror("mkdir:");
+    if (fs_mkdir(sb, "/dir/") == -1) {
+        perror("mkdir");
     }
+#else
+    strcpy(f2name, "/a");
+#endif   
 
     if (fs_write_file(sb, fname, buf_str, strlen(buf_str) + 1) == -1) {
-        perror("WriteFile Error!\n");
+        perror("WriteFile Error!");
     }
     if (fs_read_file(sb, fname, buf_read, strlen(buf_str) + 1) == -1) {
-        perror("ReadFile Error!\n");
+        perror("ReadFile Error!");
     }
 
     if (fs_write_file(sb, f2name, buf_str2, strlen(buf_str2) + 1) == -1) {
-        perror("WriteFile Error!\n");
+        perror("WriteFile Error!");
     }
     if (fs_read_file(sb, f2name, buf_read2, strlen(buf_str2) + 1) == -1) {
-        perror("ReadFile Error!\n");
+        perror("ReadFile Error!");
     }
-    printf("read string(%s), original(%s)\n",buf_read2, buf_str2);
+    printf("read string(%s), original(%s)\n", buf_read2, buf_str2);
 
     assert(strcmp(buf_str, buf_read) == 0);
 
     free(fs_list_dir(sb, "/"));
     free(fs_list_dir(sb, "/dir"));
-    fs_delete_file(sb, fname);
+    if (fs_delete_file(sb, fname) == -1) {
+        perror("Delete File: ");
+    }
     free(fs_list_dir(sb, "/"));
 
     if (fs_close(sb)) perror("open_close");
@@ -156,8 +166,8 @@ void fs_io_test(uint64_t fsize, uint64_t blksz) {
     free(buf_str);
     free(buf_str2);
     free(buf);
-    
-    
+
+
 
     buf = NULL;
 }
