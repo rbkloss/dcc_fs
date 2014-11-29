@@ -3,6 +3,18 @@
 #include "fs.h"
 #include "StringProc.h"
 
+void seek_write(const struct superblock* sb, const uint64_t to, void * n) {
+    assert(sb != NULL && n != NULL);
+    lseek((sb)->fd, (to) * (sb)->blksz, SEEK_SET);
+    write((sb)->fd, (n), (sb)->blksz);
+}
+
+void seek_read(const struct superblock* sb, const uint64_t from, void* n) {
+    assert(sb != NULL && n != NULL);
+    lseek((sb)->fd, (from) * (sb)->blksz, SEEK_SET);
+    read((sb)->fd, (n), sb->blksz);
+}
+
 void cleanNode(struct inode* n) {
     n->links[0] = 0;
     n->meta = 0;
@@ -45,17 +57,24 @@ uint64_t getNodeLastLinkBlock(const struct superblock* sb, uint64_t nodeBlock) {
     uint64_t ans = nodeBlock;
     struct inode* node = NULL;
     node = malloc(sb->blksz);
-    SEEK_READ(sb, nodeBlock, node);
+    seek_read(sb, nodeBlock, node);
     while (node->next != 0) {
         ans = node->next;
-        SEEK_READ(sb, node->next, node);
+        seek_read(sb, node->next, node);
     }
+    free(node);
     return ans;
 }
 
 uint64_t findFile(const struct superblock* sb, const char* fname, int* exists) {
     assert(exists != NULL);
     struct inode* node, *ent;
+
+    if (strcmp("/", fname) == 0) {
+        *exists = TRUE;
+        return sb->root;
+    }
+
     initNode(&node, sb->blksz);
     initNode(&ent, sb->blksz);
     struct nodeinfo *meta = (struct nodeinfo*) malloc(sb->blksz);
@@ -64,15 +83,15 @@ uint64_t findFile(const struct superblock* sb, const char* fname, int* exists) {
 
     *exists = FALSE;
     uint64_t fileBlock = sb->root;
-    SEEK_READ(sb, fileBlock, node);
+    seek_read(sb, fileBlock, node);
     int it = 0;
     while (it < len) {
         int foundEnt = FALSE;
         int i = 0;
         do {
             while (node->links[i] != 0) {
-                SEEK_READ(sb, node->links[i], ent);
-                SEEK_READ(sb, ent->meta, meta);
+                seek_read(sb, node->links[i], ent);
+                seek_read(sb, ent->meta, meta);
                 if (strcmp(meta->name, fileParts[it]) == 0) {
                     foundEnt = TRUE;
                     fileBlock = node->links[i];
@@ -82,10 +101,10 @@ uint64_t findFile(const struct superblock* sb, const char* fname, int* exists) {
                 i++;
             }
             if ((foundEnt || node->next == 0))break;
-            SEEK_READ(sb, node->next, node);
+            seek_read(sb, node->next, node);
         } while (node->next != 0);
         if (foundEnt) {
-            SEEK_READ(sb, fileBlock, node);
+            seek_read(sb, fileBlock, node);
         } else {
             *exists = FALSE;
             free(node);
@@ -111,7 +130,7 @@ int existsFile(const struct superblock* sb, const char* fname) {
     return (exists);
 }
 
-int insertBlock2NodeLinks(struct superblock* sb, const char* dirName,
+int InsertInNode(struct superblock* sb, const char* dirName,
         const uint64_t fileBlock) {
     int exists;
     struct inode*dirNode = NULL;
@@ -119,8 +138,8 @@ int insertBlock2NodeLinks(struct superblock* sb, const char* dirName,
     dirNode = malloc(sb->blksz);
     meta = malloc(sb->blksz);
     uint64_t dirBlock = findFile(sb, dirName, &exists);
-    SEEK_READ(sb, dirBlock, dirNode);
-    SEEK_READ(sb, dirNode->meta, meta);
+    seek_read(sb, dirBlock, dirNode);
+    seek_read(sb, dirNode->meta, meta);
     int len = 0;
     char** fileparts = getFileParts(dirName, &len);
     if (strcmp(meta->name, fileparts[len - 1]) != 0)return 0; //dir does not exists
@@ -133,13 +152,13 @@ int insertBlock2NodeLinks(struct superblock* sb, const char* dirName,
         uint64_t lastLinkBlock = getNodeLastLinkBlock(sb, dirBlock);
         struct inode* lastLinkNode = NULL;
         lastLinkNode = malloc(sb->blksz);
-        SEEK_READ(sb, lastLinkBlock, lastLinkNode);
+        seek_read(sb, lastLinkBlock, lastLinkNode);
         if (lastLinkNode->next != 0) {
             exit(EXIT_FAILURE);
         }
         lastLinkNode->next = fs_get_block(sb);
-        SEEK_WRITE(sb, lastLinkNode->next, linknode);
-        SEEK_WRITE(sb, lastLinkBlock, lastLinkNode);
+        seek_write(sb, lastLinkNode->next, linknode);
+        seek_write(sb, lastLinkBlock, lastLinkNode);
         free(linknode);
         free(lastLinkNode);
     } else {
@@ -147,8 +166,8 @@ int insertBlock2NodeLinks(struct superblock* sb, const char* dirName,
         dirNode->links[linkLen] = fileBlock;
         dirNode->links[linkLen + 1] = 0;
     }
-    SEEK_WRITE(sb, dirBlock, dirNode);
-    SEEK_WRITE(sb, dirNode->meta, meta);
+    seek_write(sb, dirBlock, dirNode);
+    seek_write(sb, dirNode->meta, meta);
 
     freeFileParts(&fileparts, len);
     free(dirNode);
@@ -156,14 +175,22 @@ int insertBlock2NodeLinks(struct superblock* sb, const char* dirName,
     return FALSE;
 }
 
-int insertInBlockLinks(struct superblock* sb, const uint64_t destBlock,
+/**
+ * Inserts block2Add in the links relative to destBlock.
+ * Does not check if destBlock is valid!
+ * @param sb the superblock
+ * @param destBlock block to receive block2Add as a child
+ * @param block2Add block to be added in the children of destBlock
+ * @return as of now you can ignore this
+ */
+int insertInBlock(struct superblock* sb, const uint64_t destBlock,
         const uint64_t block2Add) {
     struct inode *dirNode = NULL;
     struct nodeinfo* meta = NULL;
     dirNode = malloc(sb->blksz);
     meta = malloc(sb->blksz);
-    SEEK_READ(sb, destBlock, dirNode);
-    SEEK_READ(sb, dirNode->meta, meta);
+    seek_read(sb, destBlock, dirNode);
+    seek_read(sb, dirNode->meta, meta);
     if ((++meta->size) % getLinksMaxLen(sb) == 0) {
         //needs to create another link block      
         struct inode* linknode = NULL;
@@ -173,13 +200,13 @@ int insertInBlockLinks(struct superblock* sb, const uint64_t destBlock,
         uint64_t lastLinkBlock = getNodeLastLinkBlock(sb, destBlock);
         struct inode* lastLinkNode = NULL;
         lastLinkNode = malloc(sb->blksz);
-        SEEK_READ(sb, lastLinkBlock, lastLinkNode);
+        seek_read(sb, lastLinkBlock, lastLinkNode);
         if (lastLinkNode->next != 0) {
             exit(EXIT_FAILURE);
         }
         lastLinkNode->next = fs_get_block(sb);
-        SEEK_WRITE(sb, lastLinkNode->next, linknode);
-        SEEK_WRITE(sb, lastLinkBlock, lastLinkNode);
+        seek_write(sb, lastLinkNode->next, linknode);
+        seek_write(sb, lastLinkBlock, lastLinkNode);
         free(linknode);
         free(lastLinkNode);
     } else {
@@ -187,10 +214,10 @@ int insertInBlockLinks(struct superblock* sb, const uint64_t destBlock,
         dirNode->links[linkLen] = block2Add;
         dirNode->links[linkLen + 1] = 0;
     }
-    SEEK_WRITE(sb, destBlock, dirNode);
-    SEEK_WRITE(sb, dirNode->meta, meta);
+    seek_write(sb, destBlock, dirNode);
+    seek_write(sb, dirNode->meta, meta);
 
     free(dirNode);
     free(meta);
-    return FALSE;
+    return TRUE;
 }
