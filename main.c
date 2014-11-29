@@ -13,7 +13,7 @@ void test(uint64_t fsize, uint64_t blksz);
 void fs_check(const struct superblock *sb, uint64_t fsize, uint64_t blksz);
 void fs_free_check(struct superblock **sb, uint64_t fsize, uint64_t blksz);
 
-void fs_io_test(struct superblock *sb, uint64_t fsize, uint64_t blksz);
+void fs_io_test(uint64_t fsize, uint64_t blksz);
 
 #define NELEMS(x) (sizeof(x)/sizeof(x[0]))
 
@@ -26,7 +26,11 @@ int main(int argc, char **argv) {
 
     for (i = 0; i < NELEMS(blkszs); i++) {
         printf("fsize %d blksz %d\n", (int) fsizes[i], (int) blkszs[i]);
-        test(fsizes[i], blkszs[i]);
+        //test(fsizes[i], blkszs[i]);
+    }
+    for (i = 1; i < NELEMS(blkszs); i++) {
+        printf("fsize %d blksz %d\n", (int) fsizes[i], (int) blkszs[i]);
+        fs_io_test(fsizes[i], blkszs[i]);
     }
 
 
@@ -34,87 +38,126 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
 }
 
-void test(uint64_t fsize, uint64_t blksz) {
-    int err;
+void test(uint64_t fsize, uint64_t blksz)
+{
+	int err;
+
+	char *buf = malloc(fsize);
+	if(!buf) { perror(NULL); exit(EXIT_FAILURE); }
+	memset(buf, 0, fsize);
+
+	unlink(fname);
+	FILE *fd = fopen(fname, "w");
+	fwrite(buf, 1, fsize, fd);
+	fclose(fd);
+
+	struct superblock *sb = fs_open(fname);
+	if(errno != EBADF) { printf("FAIL did not set errno\n"); }
+	if(sb != NULL) { printf("FAIL unformatted img\n"); }
+
+	sb = fs_format(fname, blksz);
+	err = errno;
+	if(blksz < MIN_BLOCK_SIZE) {
+		if(err != EINVAL) printf("FAIL did not set errno\n");
+		if(sb != NULL) printf("FAIL formatted too small blocks\n");
+	}
+	if(fsize/blksz < MIN_BLOCK_COUNT) {
+		if(err != ENOSPC) printf("FAIL did not set errno\n");
+		if(sb != NULL) printf("FAIL formatted too small volume\n");
+	}
+
+	if(sb == NULL) return;
+
+	fs_check(sb, fsize, blksz);
+	fs_free_check(&sb, fsize, blksz);
+	fs_check(sb, fsize, blksz);
+
+	if(fs_close(sb)) perror("format_close");
+
+	sb = fs_open(fname);
+	if(!sb) perror("open");
+
+	fs_check(sb, fsize, blksz);
+	fs_free_check(&sb, fsize, blksz);
+	fs_check(sb, fsize, blksz);
+
+	if(fs_open(fname)) {
+		printf("FAIL opened FS twice\n");
+	} else if(errno != EBUSY) {
+		printf("FAIL did not set errno EBUSY on fs reopen\n");
+	}
+
+	if(fs_close(sb)) perror("open_close");
+}
+
+
+void fs_io_test(uint64_t fsize, uint64_t blksz) {
     char *buf = malloc(fsize);
     if (!buf) {
         perror(NULL);
         exit(EXIT_FAILURE);
     }
     memset(buf, 0, fsize);
-
-    unlink(fname);
-    FILE *fd = fopen(fname, "w");
+    char* imName = "file.img";
+    unlink(imName);
+    FILE *fd = fopen(imName, "w");
     fwrite(buf, 1, fsize, fd);
     fclose(fd);
 
-    struct superblock *sb = fs_open(fname);
-    if (errno != EBADF) {
-        printf("FAIL did not set errno\n");
-    }
-    if (sb != NULL) {
-        printf("FAIL unformatted img\n");
+    struct superblock*sb = fs_format(imName, blksz);
+    if (sb == NULL) {
+        free(buf);
+        return;
     }
 
-    sb = fs_format(fname, blksz);
-    err = errno;
-    if (blksz < MIN_BLOCK_SIZE) {
-        if (err != EINVAL) printf("FAIL did not set errno\n");
-        if (sb != NULL) printf("FAIL formatted too small blocks\n");
-    }
-    if (fsize / blksz < MIN_BLOCK_COUNT) {
-        if (err != ENOSPC) printf("FAIL did not set errno\n");
-        if (sb != NULL) printf("FAIL formatted too small volume\n");
-    }
-
-    if (sb == NULL) return;
+    char* buf_str = malloc(15);
+    char* buf_str2 = malloc(6);
+    char* buf_read = malloc(15);
+    char* buf_read2 = malloc(6);
+    char* fname = malloc(7);
+    char* f2name = malloc(3);
+    strcpy(buf_str2, "hallo");
+    strcpy(fname, "/teste");
+    strcpy(buf_str, "diga oi lilica");
+    strcpy(f2name, "/dir/a");
     
+    fs_mkdir(sb, "/dir/");    
 
-    fs_check(sb, fsize, blksz);
-    fs_free_check(&sb, fsize, blksz);
-    fs_check(sb, fsize, blksz);
-
-    if (fs_close(sb)) perror("format_close");
-
-    sb = fs_open(fname);
-    if (!sb) perror("open");
-
-    fs_check(sb, fsize, blksz);
-    fs_free_check(&sb, fsize, blksz);
-    fs_check(sb, fsize, blksz);
-    
-    fs_io_test(sb, fsize, blksz);
-
-    if (fs_open(fname)) {
-        printf("FAIL opened FS twice\n");
-    } else if (errno != EBUSY) {
-        printf("FAIL did not set errno EBUSY on fs reopen\n");
+    if (fs_write_file(sb, fname, buf_str, strlen(buf_str) + 1) == -1) {
+        perror("WriteFile Error!\n");
     }
+    if (fs_read_file(sb, fname, buf_read, strlen(buf_str) + 1) == -1) {
+        perror("ReadFile Error!\n");
+    }
+
+    if (fs_write_file(sb, f2name, buf_str2, strlen(buf_str2) + 1) == -1) {
+        perror("WriteFile Error!\n");
+    }
+    if (fs_read_file(sb, f2name, buf_read2, strlen(buf_str2) + 1) == -1) {
+        perror("ReadFile Error!\n");
+    }
+    printf("read string(%s), original(%s)\n",buf_read2, buf_str2);
+
+    assert(strcmp(buf_str, buf_read) == 0);
+
+    free(fs_list_dir(sb, "/"));
+    free(fs_list_dir(sb, "/dir"));
+    fs_delete_file(sb, fname);
+    free(fs_list_dir(sb, "/"));
 
     if (fs_close(sb)) perror("open_close");
-    free(buf);
-    buf = NULL;
-}
 
-void fs_io_test(struct superblock *sb, uint64_t fsize, uint64_t blksz) {
-    if (sb->magic != 0xdcc605f5) {
-        printf("FAIL magic\n");
-    }
-    if (sb->blks != fsize / blksz) {
-        printf("FAIL number of blocks\n");
-    }
-    if (sb->blksz != blksz) {
-        printf("FAIL block size\n");
-    }
-
-    char* buf = "diga oi lilica";
-    char* buf_read = malloc(15);
-    char* fname = "/teste";
-    fs_write_file(sb, fname, buf, strlen(buf));
-    fs_read_file(sb, fname, buf_read, strlen(buf));
-
-    assert(strcmp(buf, buf_read) == 0);
     free(buf_read);
+    free(buf_read2);
+    free(fname);
+    free(f2name);
+    free(buf_str);
+    free(buf_str2);
+    free(buf);
+    
+    
+
+    buf = NULL;
 }
 
 void fs_free_check(struct superblock **sb, uint64_t fsize, uint64_t blksz) {
