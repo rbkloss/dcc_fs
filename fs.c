@@ -279,7 +279,7 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
 
 
     uint64_t fileBlock = fs_get_block(sb);
-    insertInBlockLinks(sb, dirBlock, fileBlock);
+    insertInBlock(sb, dirBlock, fileBlock);
     uint64_t blocksList[blocksNeeded];
     ///properly write the file
     while (blocksUsed < blocksNeeded) {
@@ -661,7 +661,7 @@ int fs_mkdir(struct superblock *sb, const char *dname) {
 
     /* Ok, proceed */
     if (!exists) {
-        insertInBlockLinks(sb, fileBlock, folder_block);
+        insertInBlock(sb, fileBlock, folder_block);
 
         /* store both inodes related to the folder that
                  has been just created
