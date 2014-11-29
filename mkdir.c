@@ -65,7 +65,9 @@ int checkfather_path (struct superblock *sb, const char *dname, struct inode* fa
   int size = 0;
   char **dname_array = getFileParts (dname, &size);
   
-  int valid = strcmp (dname_array[size-2], info_pai->name);
+  int valid = 0;
+  if (size >= 2)
+    valid = strcmp (dname_array[size-2], info_pai->name);
 
   freeFileParts (&dname_array, size);
   free (info_pai);
