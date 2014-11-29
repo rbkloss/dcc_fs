@@ -161,7 +161,7 @@ int fs_close(struct superblock *sb) {
     if (sb == NULL) {
         return -1;
     }
-    seek_write(sb, 0, sb);
+    SEEK_WRITE(sb, 0, sb);
     if (flock(sb->fd, LOCK_UN | LOCK_NB) != 0) {
         errno = EBADF;
         return -1;
@@ -180,24 +180,24 @@ uint64_t fs_get_block(struct superblock *sb) {
     struct freepage *fp = (struct freepage *) malloc(sb->blksz);
     struct freepage *fp_prev = (struct freepage *) malloc(sb->blksz);
     struct freepage *fp_next = (struct freepage *) malloc(sb->blksz);
-    seek_read(sb, freeList, fp);
+    SEEK_READ(sb, freeList, fp);
     if (fp->count != 0) {
         //update previous pointers        
-        seek_read(sb, fp->links[0], fp_prev);
+        SEEK_READ(sb, fp->links[0], fp_prev);
         fp_prev->next = fp->next;
-        seek_write(sb, fp->links[0], fp_prev);
+        SEEK_WRITE(sb, fp->links[0], fp_prev);
     }
 
     if (fp->next != 0) {
         //update next pointers        
-        seek_read(sb, fp->next, fp_next);
+        SEEK_READ(sb, fp->next, fp_next);
         fp_next->links[0] = fp->links[0];
-        seek_write(sb, fp->next, fp_next);
+        SEEK_WRITE(sb, fp->next, fp_next);
     }
 
     sb->freelist = fp->next;
     sb->freeblks--;
-    seek_write(sb, 0, sb);
+    SEEK_WRITE(sb, 0, sb);
 
     free(fp_prev);
     free(fp);
@@ -212,13 +212,13 @@ int fs_put_block(struct superblock *sb, uint64_t block) {
         fp = (struct freepage *) malloc(sb->blksz);
         fp_next = (struct freepage *) malloc(sb->blksz);
 
-        seek_read(sb, freeList, fp_next);
+        SEEK_READ(sb, freeList, fp_next);
         fp->next = freeList;
         fp->count = 0;
-        seek_write(sb, block, fp);
+        SEEK_WRITE(sb, block, fp);
         fp_next->count = 1;
         fp_next->links[0] = block;
-        seek_write(sb, freeList, fp_next);
+        SEEK_WRITE(sb, freeList, fp_next);
 
         free(fp);
         free(fp_next);
@@ -227,12 +227,12 @@ int fs_put_block(struct superblock *sb, uint64_t block) {
         fp = (struct freepage *) malloc(sb->blksz);
         fp->next = 0;
         fp->count = 0;
-        seek_write(sb, block, fp);
+        SEEK_WRITE(sb, block, fp);
         free(fp);
     }
     sb->freelist = block;
     sb->freeblks++;
-    seek_write(sb, 0, sb);
+    SEEK_WRITE(sb, 0, sb);
     return 0;
 }
 
@@ -262,8 +262,8 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
     struct nodeinfo* meta = (struct nodeinfo*) calloc(1, sb->blksz);
     initNode(&dirNode, sb->blksz);
     initNode(&node, sb->blksz);
-    seek_read(sb, dirBlock, dirNode);
-    seek_read(sb, dirNode->meta, meta);
+    SEEK_READ(sb, dirBlock, dirNode);
+    SEEK_READ(sb, dirNode->meta, meta);
     dirName = calloc(1, sizeof (char)* (strlen(meta->name) + 1));
     strcpy(dirName, meta->name);
     if (dirBlock != sb->root) {
@@ -279,7 +279,7 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
 
 
     uint64_t fileBlock = fs_get_block(sb);
-    insertInBlock(sb, dirBlock, fileBlock);
+    insertInBlockLinks(sb, dirBlock, fileBlock);
     uint64_t blocksList[blocksNeeded];
     ///properly write the file
     while (blocksUsed < blocksNeeded) {
@@ -289,7 +289,7 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
         char* blockContent = buf + sb->blksz * (blocksUsed);
         strcpy(temp, blockContent);
         blocksUsed++;
-        seek_write(sb, block, temp);
+        SEEK_WRITE(sb, block, temp);
         free(temp);
     }
     strcpy(meta->name, fileParts[len - 1]);
@@ -300,7 +300,7 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
     node->mode = IMREG;
     node->parent = dirBlock;
 
-    seek_write(sb, node->meta, meta);
+    SEEK_WRITE(sb, node->meta, meta);
 
     uint64_t nodeBlock = fileBlock;
     blocksUsed = 0;
@@ -315,7 +315,7 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
         }
         if (blocksUsed < blocksNeeded) {
             node->next = fs_get_block(sb);
-            seek_write(sb, nodeBlock, node);
+            SEEK_WRITE(sb, nodeBlock, node);
             nodeBlock = node->next;
             node->next = 0;
             node->parent = fileBlock;
@@ -323,10 +323,10 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
             node->meta = fs_get_block(sb);
             strcpy(meta->name, fileParts[len - 1]);
             meta->size = cnt;
-            seek_write(sb, node->meta, meta);
+            SEEK_WRITE(sb, node->meta, meta);
         }
     }
-    seek_write(sb, nodeBlock, node);
+    SEEK_WRITE(sb, nodeBlock, node);
 
     free(meta);
     free(node);
@@ -352,8 +352,8 @@ ssize_t fs_read_file(struct superblock *sb, const char *fname, char *buf,
     initNode(&node, sb->blksz);
     struct nodeinfo* meta = (struct nodeinfo*) calloc(1, sb->blksz);
 
-    seek_read(sb, fileBlock, node);
-    seek_read(sb, node->meta, meta);
+    SEEK_READ(sb, fileBlock, node);
+    SEEK_READ(sb, node->meta, meta);
     assert(strcmp(meta->name, fileParts[len - 1]) == 0);
 
     size_t size = MIN(meta->size, bufsz);
@@ -365,12 +365,12 @@ ssize_t fs_read_file(struct superblock *sb, const char *fname, char *buf,
     do {
         int i = 0;
         while (node->links[i] != 0) {
-            seek_read(sb, node->links[i++], p);
+            SEEK_READ(sb, node->links[i++], p);
             p = p + sb->blksz;
             read_blocks++;
         }
         if (node->next == 0)break;
-        seek_read(sb, node->next, node);
+        SEEK_READ(sb, node->next, node);
     } while (node->next != 0);
     strcpy(buf, buf_p);
     freeFileParts(&fileParts, len);
@@ -405,7 +405,7 @@ int fs_delete_file(struct superblock *sb, const char *fname) { //o proprio nome 
         return -1;
     }
 
-    seek_read(sb, fileBlock, file); //pegando inode do arquivo
+    SEEK_READ(sb, fileBlock, file); //pegando inode do arquivo
     if (file->mode == IMDIR) { //se for diretorio
         errno = EISDIR;
         return -1;
@@ -413,8 +413,8 @@ int fs_delete_file(struct superblock *sb, const char *fname) { //o proprio nome 
 
     folderBlock = file->parent;
     fileLinkBlk = folderBlock;
-    seek_read(sb, folderBlock, folder); //diretorio onde esta o arquivo
-    seek_read(sb, folder->meta, folderInfo);
+    SEEK_READ(sb, folderBlock, folder); //diretorio onde esta o arquivo
+    SEEK_READ(sb, folder->meta, folderInfo);
 
 
     //removendo o arquivo e blocos associados
@@ -425,7 +425,7 @@ int fs_delete_file(struct superblock *sb, const char *fname) { //o proprio nome 
         file->links[i] = 0; //marcando que nao tem mais bloco neste link.
         i++;
         if (i == maxLink && file->next != 0) {
-            seek_read(sb, file->next, file);
+            SEEK_READ(sb, file->next, file);
             fs_put_block(sb, file->meta); //apagando bloco anterior depois de ir pro próximo.
             i = 0;
         }
@@ -441,7 +441,7 @@ int fs_delete_file(struct superblock *sb, const char *fname) { //o proprio nome 
             i++;
             if ((i % maxLink == 0) && (folder->next != 0)) {
                 fileLinkBlk = folder->next; //guardando bloco que pode conter link pro arquivo. Saindo do while sera ele.
-                seek_read(sb, folder->next, folder);
+                SEEK_READ(sb, folder->next, folder);
             }
         }
         lastBlock = getNodeLastLinkBlock(sb, folderBlock);
@@ -449,18 +449,18 @@ int fs_delete_file(struct superblock *sb, const char *fname) { //o proprio nome 
             folder->links[i % maxLink] = folder->links[getLinksLen(folder) - 1];
             folder->links[getLinksLen(folder) - 1] = 0;
         } else {
-            seek_read(sb, lastBlock, aux);
+            SEEK_READ(sb, lastBlock, aux);
             folder->links[i % maxLink] = aux->links[getLinksLen(aux) - 1]; //copiando ultimo link pra posicao q indicava bloco do arquivo removido
             aux->links[getLinksLen(aux) - 1] = 0;
-            seek_write(sb, lastBlock, aux); //Devo escrever o bloco alterado de volta no disco, certo?
+            SEEK_WRITE(sb, lastBlock, aux); //Devo escrever o bloco alterado de volta no disco, certo?
         }
 
     }
     folderInfo->size--;
 
-    seek_write(sb, fileLinkBlk, folder); //escrevendo o que contem o link pro arquivo (foi alterado ali em cima)
-    seek_read(sb, folderBlock, folder); //voltando pro inode principal da pasta
-    seek_write(sb, folder->meta, folderInfo); //pra escrever o folderinfo no bloco onde ele estava.
+    SEEK_WRITE(sb, fileLinkBlk, folder); //escrevendo o que contem o link pro arquivo (foi alterado ali em cima)
+    SEEK_READ(sb, folderBlock, folder); //voltando pro inode principal da pasta
+    SEEK_WRITE(sb, folder->meta, folderInfo); //pra escrever o folderinfo no bloco onde ele estava.
 
     free(file);
     free(folder);
@@ -495,7 +495,7 @@ char * fs_list_dir(struct superblock *sb, const char *dname) { //lista tudo o qu
         return NULL;
     }
 
-    seek_read(sb, dirBlock, dir); //pegando inode do diretorio
+    SEEK_READ(sb, dirBlock, dir); //pegando inode do diretorio
     if (dir->mode != IMDIR) { //se nao for diretorio
         errno = ENOTDIR;
         return NULL;
@@ -503,8 +503,8 @@ char * fs_list_dir(struct superblock *sb, const char *dname) { //lista tudo o qu
 
     while (i < maxLink && dir->links[i] != 0) { //buscar em todos os links do bloco
 
-        seek_read(sb, dir->links[i], aux); //objeto de 'links', sempre sera inode IMREG ou IMDIR
-        seek_read(sb, aux->meta, auxinfo); //nodeinfo dele
+        SEEK_READ(sb, dir->links[i], aux); //objeto de 'links', sempre sera inode IMREG ou IMDIR
+        SEEK_READ(sb, aux->meta, auxinfo); //nodeinfo dele
 
         if (aux->mode == IMDIR)
             isDir = 1;
@@ -524,7 +524,7 @@ char * fs_list_dir(struct superblock *sb, const char *dname) { //lista tudo o qu
         i++;
         if (i == maxLink && (dir->next != 0)) {
             i = 0; //tem next? reseta contagem
-            seek_read(sb, dir->next, dir); //indo pro proximo inode, se houver.
+            SEEK_READ(sb, dir->next, dir); //indo pro proximo inode, se houver.
         }
     }
 
@@ -534,103 +534,157 @@ char * fs_list_dir(struct superblock *sb, const char *dname) { //lista tudo o qu
     printf("%s\n", names);
     return names;
 }
+
+
 /*
  * Leobas:
  */
-#define notvalid -1
+#define invalid -1
 #define success 0
 
-/*
-void inc_folder_size (struct superblock *sb, uint64_t father_nodeinfo_block, const char *dname){
+void init_folder_struct (struct inode* folder, uint64_t folder_block, uint64_t nodeinfo_block) {
 
-        struct nodeinfo *n_info = (struct nodeinfo*) malloc (sb->blksz);
-        SEEK_READ (sb, father_nodeinfo_block, n_info);
+	 /* inode properties for a folder */ 
 
-        n_info->size++;
-
-        SEEK_WRITE (sb, father_nodeinfo_block, n_info);
-
-}
- */
-
-void init_folder_struct(struct inode* folder, uint64_t folder_block, uint64_t nodeinfo_block) {
-
-    /* inode properties for a folder */
-
-    /* =mode indicates that the inode is a directory */
-    folder->mode = IMDIR;
-    /* =parent points to the block that contains this inode */
-    folder->parent = folder_block;
-    /* start the =next value with 0 */
-    folder->next = 0;
-    /* =meta value must point to the nodeinfo block */
-    folder->meta = nodeinfo_block;
+  /* =mode indicates that the inode is a directory */
+  folder->mode = IMDIR;
+  /* =parent points to the block that contains this inode */
+  folder->parent = folder_block;
+  /* start the =next value with 0 */
+  folder->next = 0;
+  /* =meta value must point to the nodeinfo block */
+  folder->meta = nodeinfo_block;
 
 }
 
-void init_nodeinfo_struct(const char* dname, struct nodeinfo* n_info, uint64_t nodeinfo_block) {
-    /* nodeinfo properties */
+int init_nodeinfo_struct (struct superblock* sb, const char* dname, struct nodeinfo* n_info, uint64_t nodeinfo_block){
+	/* nodeinfo properties */
 
-    /* =size contains the number of files in the directory*/
-    n_info->size = 0;
-    /* =name contains the name of the new folder
-     * i.e. /home/user/dir1/folder
-     * =name is equals to folder
-     */
-    int size = 0;
-    char** dname_array = getFileParts(dname, &size);
-    strcpy(n_info->name, dname_array[size - 1]);
-    freeFileParts(&dname_array, size);
+  /* =size contains the number of files in the directory*/
+  n_info->size = 0;
 
+  /* =name contains the name of the new folder
+   * i.e. /home/user/dir1/folder
+	 * =name is equals to folder
+   */
+	int size = 0;
+	char** dname_array = getFileParts (dname, &size);
+  int max_filename_size = getFileNameMaxLen (sb);
+  int foldername_size = strlen (dname_array[size-1]);
+  if (max_filename_size < foldername_size){
+    return invalid;
+  }
+	
+  strcpy (n_info->name, dname_array[size-1]);
+  freeFileParts (&dname_array, size);
+  
+  return success;
 }
 
-int fs_mkdir(struct superblock *sb, const char *dname) {
+int checkfather_path (struct superblock *sb, const char *dname, struct inode* father){
+  
+  struct nodeinfo* info_pai = (struct nodeinfo*) malloc (sb->blksz);
+  SEEK_READ (sb, father->meta, info_pai);
+  
+  int size = 0;
+  char **dname_array = getFileParts (dname, &size);
+  
+  int valid = strcmp (dname_array[size-2], info_pai->name);
 
-    if (!sb->freeblks) {
-        // disk is full
-        errno = ENOSPC;
-        return notvalid;
-    }
+  freeFileParts (&dname_array, size);
+  free (info_pai);
+  info_pai = NULL;
 
-    int exists = 0;
-
-    uint64_t fileBlock = findFile(sb, dname, &exists);
-
-    if (exists) {
-        // dir already exist;
-        errno = EEXIST;
-        return notvalid;
-    }
-
-    struct inode *father , *folder;
-    initNode(&father, sb->blksz);
-    initNode(&folder, sb->blksz);
-    struct nodeinfo *n_info = (struct nodeinfo*) calloc(1, sb->blksz);
-
-    uint64_t folder_block = fs_get_block(sb);
-    uint64_t nodeinfo_block = fs_get_block(sb);
-
-    init_folder_struct(folder, folder_block, nodeinfo_block);
-    init_nodeinfo_struct(dname, n_info, nodeinfo_block);
-
-    if (!exists) {
-        /* Read father inode stored in file */
-        // SEEK_READ (sb, fileBlock, father);
-
-        insertInBlock(sb, fileBlock, folder_block);
-
-        /* store both inodes related to the folder that
-                 has been just created
-         */
-        seek_write(sb, folder_block, folder);
-        seek_write(sb, nodeinfo_block, n_info);
-
-    }
-    free(folder);
-    free(father);
-    free(n_info);
-
+  if (valid == 0){
     return success;
+  }
+  else {
+    return invalid;
+  }
+}
+
+
+int fs_mkdir(struct superblock *sb, const char *dname){
+
+  if (!sb->freeblks){
+    // disk is full
+    errno = ENOSPC;
+    return invalid;
+  }
+
+  int exists = 0;
+
+  uint64_t fileBlock = findFile (sb, dname, &exists);
+
+  if (exists){
+    // dir already exist;
+    errno = EEXIST;
+    return invalid;
+  }
+
+  struct inode *father = (struct inode*) malloc (sb->blksz);
+  struct inode *folder = (struct inode*) malloc (sb->blksz);
+  struct nodeinfo *n_info = (struct nodeinfo*) malloc (sb->blksz);
+
+  uint64_t folder_block = fs_get_block (sb);
+  uint64_t nodeinfo_block = fs_get_block (sb);
+
+	init_folder_struct (folder, folder_block, nodeinfo_block);
+	int status = init_nodeinfo_struct (sb, dname, n_info, nodeinfo_block);
+
+  if (status == invalid){
+    free (father);
+    father = NULL;
+
+    free (folder);
+    folder = NULL;
+
+    free (n_info);
+    n_info = NULL;
+
+    errno = ENAMETOOLONG;
+    return invalid;
+  }
+
+  /* Read father inode stored in file */
+  SEEK_READ (sb, fileBlock, father);
+  status = checkfather_path (sb, dname, father);
+
+  if (status == invalid){
+    free (father);
+    father = NULL;
+
+    free (folder);
+    folder = NULL;
+
+    free (n_info);
+    n_info = NULL;
+    
+    errno = ENOENT;
+    return invalid;
+  }
+ 
+  /* Ok, proceed */
+  if (!exists){
+		insertInBlockLinks (sb, fileBlock, folder_block);
+
+		/* store both inodes related to the folder that
+			 has been just created
+		*/
+    SEEK_WRITE (sb, folder_block, folder);
+    SEEK_WRITE (sb, nodeinfo_block, n_info);
+    
+  }
+
+
+  free (father);
+  father = NULL;
+  free (folder);
+  folder = NULL;
+  free (n_info);
+  n_info = NULL;
+
+	return success;
 }
 
 //int fs_delete_file(struct superblock *sb, const char *fname) { //o proprio nome ja diz.
