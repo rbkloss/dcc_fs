@@ -84,7 +84,7 @@ uint64_t findFile(const struct superblock* sb, const char* fname, int* exists) {
     *exists = FALSE;
     uint64_t fileBlock = sb->root;
     seek_read(sb, fileBlock, node);
-    int it = 0;
+    int it = 1;
     while (it < len) {
         int foundEnt = FALSE;
         int i = 0;

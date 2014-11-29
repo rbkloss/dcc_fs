@@ -13,8 +13,6 @@
 #include "utils.h"
 #include "StringProc.h"
 
-#define SB_SIZE 52
-
 /* Build a new filesystem image in =fname (the file =fname should be present
  * in the OS's filesystem).  The new filesystem should use =blocksize as its
  * block size; the number of blocks in the filesystem will be automatically
@@ -266,15 +264,14 @@ int fs_write_file(struct superblock *sb, const char *fname, char *buf, size_t cn
     seek_read(sb, dirNode->meta, meta);
     dirName = calloc(1, sizeof (char)* (strlen(meta->name) + 1));
     strcpy(dirName, meta->name);
-    if (dirBlock != sb->root) {
-        if (strcmp(fileParts[MAX(0, len - 2)], dirName) != 0) {
-            errno = EBADF;
-            free(dirName);
-            free(node);
-            free(meta);
-            free(dirNode);
-            return -1;
-        }
+
+    if (strcmp(fileParts[MAX(0, len - 2)], dirName) != 0) {
+        errno = EBADF;
+        free(dirName);
+        free(node);
+        free(meta);
+        free(dirNode);
+        return -1;
     }
 
 
@@ -583,10 +580,16 @@ int checkfather_path(struct superblock *sb, const char *dname, struct inode* fat
     struct nodeinfo* info_pai = (struct nodeinfo*) malloc(sb->blksz);
     seek_read(sb, father->meta, info_pai);
 
-    int size = 0;
+    int size = 0, parentIdx;
     char **dname_array = getFileParts(dname, &size);
 
-    int valid = strcmp(dname_array[size - 2], info_pai->name);
+    if (size < 2) {
+        parentIdx = 0;
+    } else {
+        parentIdx = size - 2;
+    }
+    int valid = strcmp(dname_array[parentIdx], info_pai->name);
+
 
     freeFileParts(&dname_array, size);
     free(info_pai);

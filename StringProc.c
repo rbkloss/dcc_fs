@@ -20,11 +20,14 @@ char** getFileParts(const char* fname, int* len) {
         }
         (*len)++;
     }
-
+    (*len)++;
     char** ans = (char**) malloc(sizeof (char*)*(*len));
-    for (int i = 0; i < *len; i++) {
-        ans[i] = temp[i];
-    }
+    ans[0] = calloc(1, sizeof(char*)*2);
+    strcpy(ans[0], "/");    
+    for (int i = 1; i < *len; i++) {        
+        ans[i] = temp[i-1];
+    }    
+    
     free(temp);
     free(name);
     return ans;

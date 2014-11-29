@@ -130,8 +130,8 @@ char * fs_list_dir(struct superblock *sb, const char *dname){	//lista tudo o que
 		else
 			isDir = 0;
 
-		size = strlen(auxinfo->name) + 1 + isDir;			//pegando tamanho do nome mais um espaco e mais uma barra (ou nao)
-		names = (char *)realloc(names, (size + strlen(names))*sizeof(char));	
+		size = strlen(auxinfo->name) + 5;			//pegando tamanho do nome mais um espaco e mais uma barra (ou nao)
+		names = (char *)realloc(names, (size + strlen(names) + 1)*sizeof(char));	
 		strcat(names,auxinfo->name);
 		if(isDir)
 			strcat(names, "/");
